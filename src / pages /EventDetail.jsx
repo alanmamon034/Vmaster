@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Calendar, MapPin, Clock, ChevronRight } from "lucide-react";
-import { base44 } from "@/api/base44Client";
+import { supabase } from "@/api/supabaseClient";
 import { Image } from "@/components/ui/image";
 
 export default function EventDetail() {
@@ -13,8 +13,13 @@ export default function EventDetail() {
   useEffect(() => {
     (async () => {
       try {
-        const ev = await base44.entities.Event.get(id);
-        setEvent(ev);
+        const { data, error } = await supabase
+          .from("events")
+          .select("*")
+          .eq("id", id)
+          .single();
+        if (error) throw error;
+        setEvent(data);
       } catch (e) {
         console.error(e);
       } finally {
