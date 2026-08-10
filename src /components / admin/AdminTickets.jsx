@@ -1,0 +1,348 @@
+import React, { useState, useEffect } from "react";
+import { Plus, Pencil, Trash2, X } from "lucide-react";
+import { base44 } from "@/api/base44Client";
+import { Image } from "@/components/ui/image";
+import { useToast } from "@/components/ui/use-toast";
+import { useLocationSettings } from "@/lib/LocationContext";
+
+const statuses = ["in_wallet", "listed_for_sale", "transferred", "sold"];
+
+const empty = {
+  event_name: "",
+  venue: "",
+  country: "",
+  event_date: "",
+  image_url: "",
+  order_number: "",
+  package_name: "",
+  ticket_limit: "",
+  main_section: "",
+  main_row: "",
+  main_seat: "",
+  price: "",
+  status: "in_wallet",
+};
+
+const emptySeat = { section: "", row: "", seats: "" };
+
+const fieldCls =
+  "w-full px-3 py-2 rounded-lg border border-neutral-200 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#2563eb]/30";
+const labelCls = "text-[10px] font-bold text-neutral-400 tracking-widest";
+
+export default function AdminTickets() {
+  const { toast } = useToast();
+  const { currency } = useLocationSettings();
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState(null);
+  const [form, setForm] = useState(empty);
+  const [seats, setSeats] = useState([{ ...emptySeat }]);
+  const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const load = async () => {
+    try {
+      const list = await base44.entities.Ticket.list("-created_date", 100);
+      setItems(list || []);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+
+  const onImage = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      set("image_url", file_url);
+    } catch {
+      toast({ title: "Upload failed", variant: "destructive" });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const openNew = () => {
+    setEditing("new");
+    setForm(empty);
+    setSeats([{ ...emptySeat }]);
+  };
+  const openEdit = (t) => {
+    setEditing(t.id);
+    setForm({
+      ...empty,
+      ...t,
+      ticket_limit: t.ticket_limit ?? "",
+      price: t.price ?? "",
+    });
+    setSeats((t.seat_groups && t.seat_groups.length ? t.seat_groups : [{ ...emptySeat }]));
+  };
+  const close = () => setEditing(null);
+
+  const addSeat = () => setSeats((s) => [...s, { ...emptySeat }]);
+  const removeSeat = (i) => setSeats((s) => s.filter((_, idx) => idx !== i));
+  const updateSeat = (i, k, v) =>
+    setSeats((s) => s.map((seat, idx) => (idx === i ? { ...seat, [k]: v } : seat)));
+
+  const setTicketCount = (n) => {
+    const count = Math.max(1, Number(n) || 1);
+    setSeats((s) => {
+      const next = [...s];
+      while (next.length < count) next.push({ ...emptySeat });
+      next.length = count;
+      return next;
+    });
+  };
+
+  const save = async () => {
+    if (!form.event_name.trim()) {
+      toast({ title: "Event name is required", variant: "destructive" });
+      return;
+    }
+    setSaving(true);
+    try {
+      const validSeats = seats.filter((g) => g.section || g.row || g.seats);
+      const payload = {
+        ...form,
+        seat_groups: validSeats,
+        ticket_limit: form.ticket_limit ? Number(form.ticket_limit) : null,
+        price: form.price ? Number(form.price) : null,
+      };
+      if (editing === "new") {
+        await base44.entities.Ticket.create(payload);
+      } else {
+        await base44.entities.Ticket.update(editing, payload);
+      }
+      toast({ title: "Ticket saved" });
+      setEditing(null);
+      load();
+    } catch (e) {
+      toast({ title: "Failed to save", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const remove = async (t) => {
+    if (!confirm(`Delete this ticket for "${t.event_name}"?`)) return;
+    try {
+      await base44.entities.Ticket.delete(t.id);
+      toast({ title: "Ticket deleted" });
+      load();
+    } catch {
+      toast({ title: "Failed to delete", variant: "destructive" });
+    }
+  };
+
+  return (
+    <div className="px-4">
+      <button
+        onClick={openNew}
+        className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-[#2563eb] text-white font-bold text-sm mb-4 active:scale-95 transition"
+      >
+        <Plus className="h-5 w-5" /> Add ticket
+      </button>
+
+      {loading ? (
+        <div className="flex items-center justify-center py-16">
+          <div className="w-7 h-7 border-4 border-neutral-200 border-t-[#2563eb] rounded-full animate-spin" />
+        </div>
+      ) : items.length === 0 ? (
+        <p className="text-center text-sm text-neutral-400 py-10">No tickets yet.</p>
+      ) : (
+        <div className="space-y-2">
+          {items.map((t) => (
+            <div
+              key={t.id}
+              className="flex items-center gap-3 bg-white rounded-xl p-2.5 border border-neutral-200/60"
+            >
+              <div className="h-12 w-12 rounded-lg overflow-hidden bg-neutral-200 shrink-0">
+                {t.image_url ? (
+                  <Image src={t.image_url} fittingType="fill" className="h-full w-full" />
+                ) : null}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-neutral-900 line-clamp-1">{t.event_name}</p>
+                <p className="text-xs text-neutral-500 line-clamp-1">
+                  {t.main_section} {t.main_row}/{t.main_seat} · {t.status}
+                </p>
+              </div>
+              <button onClick={() => openEdit(t)} className="p-2 text-neutral-500 active:scale-90">
+                <Pencil className="h-4 w-4" />
+              </button>
+              <button onClick={() => remove(t)} className="p-2 text-red-500 active:scale-90">
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {editing && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-end justify-center">
+          <div className="bg-white w-full max-w-md rounded-t-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-100 sticky top-0 bg-white">
+              <h3 className="font-bold text-neutral-900">
+                {editing === "new" ? "Add ticket" : "Edit ticket"}
+              </h3>
+              <button onClick={close} className="p-1">
+                <X className="h-5 w-5 text-neutral-500" />
+              </button>
+            </div>
+            <div className="p-4 space-y-3">
+              <div>
+                <p className={labelCls}>EVENT NAME</p>
+                <input value={form.event_name} onChange={(e) => set("event_name", e.target.value)} className={fieldCls} />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <p className={labelCls}>VENUE</p>
+                  <input value={form.venue} onChange={(e) => set("venue", e.target.value)} className={fieldCls} />
+                </div>
+                <div>
+                  <p className={labelCls}>COUNTRY</p>
+                  <input value={form.country} onChange={(e) => set("country", e.target.value)} className={fieldCls} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <p className={labelCls}>DATE</p>
+                  <input type="date" value={form.event_date} onChange={(e) => set("event_date", e.target.value)} className={fieldCls} />
+                </div>
+                <div>
+                  <p className={labelCls}>STATUS</p>
+                  <select value={form.status} onChange={(e) => set("status", e.target.value)} className={fieldCls}>
+                    {statuses.map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <p className={labelCls}>SECTION</p>
+                  <input value={form.main_section} onChange={(e) => set("main_section", e.target.value)} className={fieldCls} />
+                </div>
+                <div>
+                  <p className={labelCls}>ROW</p>
+                  <input value={form.main_row} onChange={(e) => set("main_row", e.target.value)} className={fieldCls} />
+                </div>
+                <div>
+                  <p className={labelCls}>SEAT</p>
+                  <input value={form.main_seat} onChange={(e) => set("main_seat", e.target.value)} className={fieldCls} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <p className={labelCls}>ORDER #</p>
+                  <input value={form.order_number} onChange={(e) => set("order_number", e.target.value)} className={fieldCls} />
+                </div>
+                <div>
+                  <p className={labelCls}>NO. OF TICKETS</p>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setTicketCount(seats.length - 1)}
+                      className="h-9 w-9 shrink-0 rounded-lg border border-neutral-300 text-lg font-bold text-neutral-600 active:bg-neutral-100"
+                    >
+                      −
+                    </button>
+                    <input
+                      type="number"
+                      value={seats.length}
+                      onChange={(e) => setTicketCount(e.target.value)}
+                      className={fieldCls + " text-center"}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setTicketCount(seats.length + 1)}
+                      className="h-9 w-9 shrink-0 rounded-lg border border-neutral-300 text-lg font-bold text-neutral-600 active:bg-neutral-100"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <p className={labelCls}>TICKET LIMIT PER PERSON</p>
+                <input type="number" value={form.ticket_limit} onChange={(e) => set("ticket_limit", e.target.value)} className={fieldCls} />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <p className={labelCls}>PACKAGE NAME</p>
+                  <input value={form.package_name} onChange={(e) => set("package_name", e.target.value)} className={fieldCls} />
+                </div>
+                <div>
+                  <p className={labelCls}>PRICE ({currency.symbol})</p>
+                  <input type="number" value={form.price} onChange={(e) => set("price", e.target.value)} className={fieldCls} />
+                </div>
+              </div>
+
+              <div>
+                <p className={labelCls}>INDIVIDUAL SEATS</p>
+                <div className="space-y-2">
+                  {seats.map((seat, i) => (
+                    <div key={i} className="rounded-lg border border-neutral-200 p-2 space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold text-neutral-400 tracking-widest">
+                          TICKET {i + 1}
+                        </span>
+                        {seats.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removeSeat(i)}
+                            className="text-[11px] font-bold text-[#2563eb]"
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <input value={seat.section} onChange={(e) => updateSeat(i, "section", e.target.value)} placeholder="Section" className={fieldCls} />
+                        <input value={seat.row} onChange={(e) => updateSeat(i, "row", e.target.value)} placeholder="Row" className={fieldCls} />
+                        <input value={seat.seats} onChange={(e) => updateSeat(i, "seats", e.target.value)} placeholder="Seat" className={fieldCls} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <button type="button" onClick={addSeat} className="mt-2 text-xs font-bold text-[#2563eb] flex items-center gap-1">
+                  <Plus className="h-4 w-4" /> Add seat
+                </button>
+              </div>
+
+              <div>
+                <p className={labelCls}>IMAGE</p>
+                {form.image_url ? (
+                  <div className="relative rounded-lg overflow-hidden aspect-[16/9] bg-neutral-100 mb-2">
+                    <Image src={form.image_url} fittingType="fill" className="h-full w-full" />
+                  </div>
+                ) : null}
+                <label className="block text-center py-2 rounded-lg border border-dashed border-neutral-300 text-xs font-bold text-[#2563eb] cursor-pointer">
+                  {uploading ? "Uploading…" : "Upload image"}
+                  <input type="file" accept="image/*" className="hidden" onChange={onImage} disabled={uploading} />
+                </label>
+              </div>
+
+              <button
+                onClick={save}
+                disabled={saving}
+                className="w-full py-3 rounded-xl bg-[#2563eb] text-white font-bold text-sm disabled:opacity-50 active:scale-95 transition"
+              >
+                {saving ? "Saving…" : "Save ticket"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
