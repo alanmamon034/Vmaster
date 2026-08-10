@@ -1,0 +1,48 @@
+{
+  "name": "Event",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string"
+    },
+    "artist": {
+      "type": "string"
+    },
+    "venue": {
+      "type": "string"
+    },
+    "city": {
+      "type": "string"
+    },
+    "date": {
+      "type": "string",
+      "format": "date"
+    },
+    "time": {
+      "type": "string"
+    },
+    "image_url": {
+      "type": "string"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "Concerts",
+        "Sports",
+        "Theatre",
+        "Family",
+        "Comedy",
+        "Festivals"
+      ],
+      "default": "Concerts"
+    },
+    "description": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "title",
+    "venue",
+    "date"
+  ]
+}
