@@ -1,1 +1,85 @@
-
+{
+  "name": "Ticket",
+  "type": "object",
+  "properties": {
+    "event_id": {
+      "type": "string"
+    },
+    "event_name": {
+      "type": "string"
+    },
+    "venue": {
+      "type": "string"
+    },
+    "country": {
+      "type": "string"
+    },
+    "city": {
+      "type": "string"
+    },
+    "event_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "image_url": {
+      "type": "string"
+    },
+    "order_number": {
+      "type": "string"
+    },
+    "package_name": {
+      "type": "string"
+    },
+    "ticket_limit": {
+      "type": "number"
+    },
+    "main_section": {
+      "type": "string"
+    },
+    "main_row": {
+      "type": "string"
+    },
+    "main_seat": {
+      "type": "string"
+    },
+    "seat_groups": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "section": {
+            "type": "string"
+          },
+          "row": {
+            "type": "string"
+          },
+          "seats": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "price": {
+      "type": "number"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "in_wallet",
+        "listed_for_sale",
+        "transferred",
+        "sold"
+      ],
+      "default": "in_wallet"
+    },
+    "listing_price": {
+      "type": "number"
+    },
+    "transfer_to": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "event_name"
+  ]
+}
