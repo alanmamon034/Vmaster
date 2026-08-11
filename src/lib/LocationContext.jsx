@@ -1,9 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 
-// Countries with native names, emoji flags and currency.
-// `resale` controls the nav:
-//  true  -> 5-tab (Discover, For You, My Tickets, Sell, My Account)
-//  false -> 4-tab (Discover, Favourites, My Tickets, My Account)
 export const COUNTRIES = [
   { code: "US", name: "United States", flag: "🇺🇸", resale: true, currency: { code: "USD", symbol: "$" } },
   { code: "CA", name: "Canada", flag: "🇨🇦", resale: true, currency: { code: "CAD", symbol: "CA$" } },
@@ -13,9 +9,9 @@ export const COUNTRIES = [
   { code: "NZ", name: "New Zealand", flag: "🇳🇿", resale: false, currency: { code: "NZD", symbol: "NZ$" } },
   { code: "DE", name: "Deutschland", flag: "🇩🇪", resale: false, currency: { code: "EUR", symbol: "€" } },
   { code: "AT", name: "Österreich", flag: "🇦🇹", resale: false, currency: { code: "EUR", symbol: "€" } },
-  { code: "CH", name: "Schweiz", flag: "🇨🇭", resale: false, currency: { code: "CHF", symbol: "CHF" } },
+  { code: "CH", name: "Switzerland", flag: "🇨🇭", resale: false, currency: { code: "CHF", symbol: "CHF" } },
   { code: "NL", name: "Nederland", flag: "🇳🇱", resale: false, currency: { code: "EUR", symbol: "€" } },
-  { code: "BE", name: "België", flag: "🇧🇪", resale: false, currency: { code: "EUR", symbol: "€" } },
+  { code: "BE", name: "Belgium", flag: "🇧🇪", resale: false, currency: { code: "EUR", symbol: "€" } },
   { code: "DK", name: "Danmark", flag: "🇩🇰", resale: false, currency: { code: "DKK", symbol: "kr" } },
   { code: "SE", name: "Sverige", flag: "🇸🇪", resale: false, currency: { code: "SEK", symbol: "kr" } },
   { code: "NO", name: "Norge", flag: "🇳🇴", resale: false, currency: { code: "NOK", symbol: "kr" } },
@@ -28,6 +24,18 @@ export const COUNTRIES = [
   { code: "AE", name: "United Arab Emirates", flag: "🇦🇪", resale: false, currency: { code: "AED", symbol: "AED" } },
   { code: "SG", name: "Singapore", flag: "🇸🇬", resale: false, currency: { code: "SGD", symbol: "S$" } },
   { code: "KE", name: "Kenya", flag: "🇰🇪", resale: false, currency: { code: "KES", symbol: "KSh" } },
+  { code: "BR", name: "Brasil", flag: "🇧🇷", resale: false, currency: { code: "BRL", symbol: "R$" } },
+  { code: "CL", name: "Chile", flag: "🇨🇱", resale: false, currency: { code: "CLP", symbol: "CLP$" } },
+  { code: "CY", name: "Cyprus", flag: "🇨🇾", resale: false, currency: { code: "EUR", symbol: "€" } },
+  { code: "FR", name: "France", flag: "🇫🇷", resale: false, currency: { code: "EUR", symbol: "€" } },
+  { code: "IL", name: "Israel", flag: "🇮🇱", resale: false, currency: { code: "ILS", symbol: "₪" } },
+  { code: "IT", name: "Italia", flag: "🇮🇹", resale: false, currency: { code: "EUR", symbol: "€" } },
+  { code: "PE", name: "Peru", flag: "🇵🇪", resale: false, currency: { code: "PEN", symbol: "S/" } },
+  { code: "PH", name: "Philippines", flag: "🇵🇭", resale: false, currency: { code: "PHP", symbol: "₱" } },
+  { code: "TW", name: "Taiwan", flag: "🇹🇼", resale: false, currency: { code: "TWD", symbol: "NT$" } },
+  { code: "TH", name: "Thailand", flag: "🇹🇭", resale: false, currency: { code: "THB", symbol: "฿" } },
+  { code: "TR", name: "Türkiye", flag: "🇹🇷", resale: false, currency: { code: "TRY", symbol: "₺" } },
+  { code: "GR", name: "Ελλάδα", flag: "🇬🇷", resale: false, currency: { code: "EUR", symbol: "€" } },
 ];
 
 const STORAGE_KEY = "ep_location";
