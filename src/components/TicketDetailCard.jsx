@@ -33,7 +33,6 @@ export default function TicketDetailCard({ ticket, onTransfer, onSell, onRemoveL
 
   return (
     <div className="bg-neutral-100">
-      {/* Hero */}
       <div className="relative aspect-[4/3] bg-neutral-800">
         {ticket.image_url ? (
           <Image
@@ -55,7 +54,6 @@ export default function TicketDetailCard({ ticket, onTransfer, onSell, onRemoveL
         </div>
       </div>
 
-      {/* Black event card */}
       <div className="bg-black text-white px-5 pt-5 pb-4 -mt-6 relative z-10 mx-3 rounded-t-2xl">
         <p className="text-[11px] font-medium text-white/70 tracking-wide">{dateLabel} 7:00 PM</p>
         <h2 className="text-xl font-black leading-tight mt-1">{ticket.event_name}</h2>
@@ -67,13 +65,11 @@ export default function TicketDetailCard({ ticket, onTransfer, onSell, onRemoveL
           <span className="text-xs font-semibold text-white/70">x {seatCount} tickets</span>
         </div>
 
-        {/* Status badge */}
         <span className={cn("inline-block mt-3 text-[10px] font-bold px-2 py-0.5 rounded", meta.color)}>
           {meta.label}
         </span>
       </div>
 
-      {/* Blue View Tickets bar */}
       <div className="mx-3">
         <button
           onClick={() => setOpen((o) => !o)}
@@ -84,7 +80,6 @@ export default function TicketDetailCard({ ticket, onTransfer, onSell, onRemoveL
         </button>
       </div>
 
-      {/* Tabs */}
       <div className="mx-3 mt-4 flex items-center gap-6 border-b border-neutral-200">
         <button
           onClick={() => setTab("tickets")}
@@ -106,10 +101,15 @@ export default function TicketDetailCard({ ticket, onTransfer, onSell, onRemoveL
         </button>
       </div>
 
-      {/* Main ticket summary */}
-      {open && tab === "tickets" && (ticket.main_section || ticket.order_number || ticket.package_name) && (
-        <div className="mx-3 mt-4 bg-white rounded-xl p-4 shadow-sm border border-neutral-200/60 space-y-3">
-          {(ticket.main_section || ticket.main_row || ticket.main_seat) && (
+      <div className="mx-3 py-4 space-y-3">
+        {open && tab === "tickets" && (ticket.main_section || ticket.main_row || ticket.main_seat) && (
+          <div className="bg-white rounded-xl p-4 shadow-sm border border-neutral-200/60 space-y-3">
+            {ticket.order_number && (
+              <p className="text-sm font-bold text-neutral-900">Order #{ticket.order_number}</p>
+            )}
+            {ticket.package_name && (
+              <p className="text-sm font-bold text-neutral-900">{ticket.package_name}</p>
+            )}
             <div className="grid grid-cols-3 gap-2">
               <div>
                 <p className="text-[10px] font-bold text-neutral-400 tracking-widest">SECTION</p>
@@ -124,29 +124,23 @@ export default function TicketDetailCard({ ticket, onTransfer, onSell, onRemoveL
                 <p className="text-base font-black text-neutral-900 mt-0.5">{ticket.main_seat || "—"}</p>
               </div>
             </div>
-          )}
-          {ticket.order_number && (
-            <p className="text-sm font-bold text-neutral-900">Order #{ticket.order_number}</p>
-          )}
-          {ticket.package_name && (
-            <p className="text-sm font-bold text-neutral-900">{ticket.package_name}</p>
-          )}
-          {ticket.ticket_limit && (
-            <p className="text-xs text-neutral-500">
-              {ticket.ticket_limit}-ticket limit per person on this event
-            </p>
-          )}
-        </div>
-      )}
+            {ticket.ticket_limit && (
+              <p className="text-xs text-neutral-500">
+                {ticket.ticket_limit}-ticket limit per person on this event
+              </p>
+            )}
+          </div>
+        )}
 
-      {/* Seat rows */}
-      <div className="mx-3 py-4 space-y-3">
         {open && tab === "tickets" &&
           (ticket.seat_groups || []).map((g, i) => (
             <div
               key={i}
               className="bg-white rounded-xl p-4 shadow-sm border border-neutral-200/60"
             >
+              {ticket.package_name && (
+                <p className="text-sm font-bold text-neutral-900 mb-3">{ticket.package_name}</p>
+              )}
               <div className="grid grid-cols-3 gap-2">
                 <div>
                   <p className="text-[10px] font-bold text-neutral-400 tracking-widest">SECTION</p>
@@ -163,15 +157,16 @@ export default function TicketDetailCard({ ticket, onTransfer, onSell, onRemoveL
               </div>
             </div>
           ))}
-        {open && tab === "tickets" && (ticket.seat_groups || []).length === 0 && (
-          <p className="text-center text-neutral-400 text-sm py-6">No seat details</p>
-        )}
+        {open && tab === "tickets" &&
+          (ticket.seat_groups || []).length === 0 &&
+          !(ticket.main_section || ticket.main_row || ticket.main_seat) && (
+            <p className="text-center text-neutral-400 text-sm py-6">No seat details</p>
+          )}
         {open && tab === "extras" && (
           <p className="text-center text-neutral-400 text-sm py-6">No extras available</p>
         )}
       </div>
 
-      {/* Floating Transfer / Sell pill */}
       {canAct && (
         <div className="mx-3 mb-6 sticky bottom-20 z-30">
           <div className="flex items-stretch bg-white rounded-full shadow-lg border border-neutral-200 overflow-hidden">
