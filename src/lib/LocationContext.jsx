@@ -23,7 +23,6 @@ export const COUNTRIES = [
   { code: "ZA", name: "South Africa", flag: "🇿🇦", resale: false, currency: { code: "ZAR", symbol: "R" } },
   { code: "AE", name: "United Arab Emirates", flag: "🇦🇪", resale: false, currency: { code: "AED", symbol: "AED" } },
   { code: "SG", name: "Singapore", flag: "🇸🇬", resale: false, currency: { code: "SGD", symbol: "S$" } },
-  { code: "KE", name: "Kenya", flag: "🇰🇪", resale: false, currency: { code: "KES", symbol: "KSh" } },
   { code: "BR", name: "Brasil", flag: "🇧🇷", resale: false, currency: { code: "BRL", symbol: "R$" } },
   { code: "CL", name: "Chile", flag: "🇨🇱", resale: false, currency: { code: "CLP", symbol: "CLP$" } },
   { code: "CY", name: "Cyprus", flag: "🇨🇾", resale: false, currency: { code: "EUR", symbol: "€" } },
