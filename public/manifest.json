@@ -1,6 +1,6 @@
 {
-  "name": "Your App Name",
-  "short_name": "YourApp",
+  "name": "Ticketmaster",
+  "short_name": "Ticketmaster",
   "icons": [
     { "src": "/logo.png", "sizes": "192x192", "type": "image/png" },
     { "src": "/logo.png", "sizes": "512x512", "type": "image/png" }
