@@ -1,26 +1,17 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { useNavigate } from "react-router-dom";
 import { User, Info, Shield, HelpCircle, ChevronRight, LogOut, Plus } from "lucide-react";
-import { base44 } from "@/api/base44Client";
+import { useAuth } from "@/lib/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
 
 export default function Settings() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [me, setMe] = useState(null);
+  const { profile, logout } = useAuth();
 
-  useEffect(() => {
-    (async () => {
-      try {
-        setMe(await base44.auth.me());
-      } catch (e) {
-        console.error(e);
-      }
-    })();
-  }, []);
-
-  const logout = async () => {
-    await base44.auth.logout();
+  const handleLogout = async () => {
+    await logout();
+    navigate("/login");
   };
 
   const sections = [
@@ -35,7 +26,7 @@ export default function Settings() {
       title: "Manage",
       items: [
         { icon: Plus, label: "Add Ticket", action: () => navigate("/add") },
-        ...(me?.role === "admin"
+        ...(profile?.role === "admin"
           ? [{ icon: Shield, label: "Admin", action: () => navigate("/admin") }]
           : []),
       ],
@@ -83,7 +74,7 @@ export default function Settings() {
         ))}
 
         <button
-          onClick={logout}
+          onClick={handleLogout}
           className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl border border-red-200 text-red-600 font-bold text-sm active:bg-red-50 transition-colors"
         >
           <LogOut className="h-5 w-5" /> Log out

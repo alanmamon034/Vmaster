@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, Calendar, MapPin, ChevronDown } from "lucide-react";
-import { base44 } from "@/api/base44Client";
+import { supabase } from "@/api/supabaseClient";
 import { Image } from "@/components/ui/image";
 import { useLocationSettings } from "@/lib/LocationContext";
 import ChangeLocation from "@/components/ChangeLocation";
@@ -20,8 +20,13 @@ export default function Home() {
   useEffect(() => {
     (async () => {
       try {
-        const list = await base44.entities.Event.list("-date", 50);
-        setEvents(list || []);
+        const { data, error } = await supabase
+          .from("events")
+          .select("*")
+          .order("date", { ascending: false })
+          .limit(50);
+        if (error) throw error;
+        setEvents(data || []);
       } catch (e) {
         console.error(e);
       } finally {
@@ -45,7 +50,6 @@ export default function Home() {
 
   return (
     <div className="min-h-screen">
-      {/* Header */}
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-neutral-100">
         <div className="px-4 pt-4 pb-3">
           <div className="flex items-center justify-between">

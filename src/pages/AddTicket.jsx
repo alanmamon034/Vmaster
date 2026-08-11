@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Plus, X, Upload, Camera, Eye, Save, Calendar, MapPin, Ticket } from "lucide-react";
-import { base44 } from "@/api/base44Client";
+import { supabase, uploadFile } from "@/api/supabaseClient";
+import { useAuth } from "@/lib/AuthContext";
 import { Image } from "@/components/ui/image";
 import { useToast } from "@/components/ui/use-toast";
 import {
@@ -20,6 +21,7 @@ export default function AddTicket() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { currency } = useLocationSettings();
+  const { user } = useAuth();
   const [submitting, setSubmitting] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -51,7 +53,7 @@ export default function AddTicket() {
     if (!file) return;
     setUploading(true);
     try {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      const { file_url } = await uploadFile(file);
       set("image_url", file_url);
       toast({ title: "Photo updated" });
     } catch (err) {
@@ -87,13 +89,15 @@ export default function AddTicket() {
     }
     setSubmitting(true);
     try {
-      await base44.entities.Ticket.create({
+      const { error } = await supabase.from("tickets").insert({
         ...form,
+        owner_id: user.id,
         seat_groups: validSeats,
         ticket_limit: form.ticket_limit ? Number(form.ticket_limit) : null,
         price: form.price ? Number(form.price) : null,
         status: "in_wallet",
       });
+      if (error) throw error;
       toast({ title: "Ticket saved to your wallet" });
       navigate("/my-tickets");
     } catch (err) {

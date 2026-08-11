@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Calendar, MapPin, Sparkles } from "lucide-react";
-import { base44 } from "@/api/base44Client";
+import { supabase } from "@/api/supabaseClient";
 import { Image } from "@/components/ui/image";
 
 export default function ForYou() {
@@ -12,8 +12,13 @@ export default function ForYou() {
   useEffect(() => {
     (async () => {
       try {
-        const list = await base44.entities.Event.list("-date", 50);
-        setEvents(list || []);
+        const { data, error } = await supabase
+          .from("events")
+          .select("*")
+          .order("date", { ascending: false })
+          .limit(50);
+        if (error) throw error;
+        setEvents(data || []);
       } catch (e) {
         console.error(e);
       } finally {

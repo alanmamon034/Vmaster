@@ -1,30 +1,16 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ShieldAlert, ArrowLeft } from "lucide-react";
-import { base44 } from "@/api/base44Client";
+import { useAuth } from "@/lib/AuthContext";
 import AdminEvents from "@/components/admin/AdminEvents";
 import AdminTickets from "@/components/admin/AdminTickets";
 
 export default function Admin() {
   const navigate = useNavigate();
-  const [me, setMe] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const { profile, isLoadingAuth } = useAuth();
   const [tab, setTab] = useState("events");
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const u = await base44.auth.me();
-        setMe(u);
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
-
-  if (loading) {
+  if (isLoadingAuth) {
     return (
       <div className="flex items-center justify-center py-24">
         <div className="w-8 h-8 border-4 border-neutral-200 border-t-[#2563eb] rounded-full animate-spin" />
@@ -32,7 +18,7 @@ export default function Admin() {
     );
   }
 
-  if (!me || me.role !== "admin") {
+  if (!profile || profile.role !== "admin") {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center px-6 text-center">
         <ShieldAlert className="h-12 w-12 text-neutral-300 mb-3" />

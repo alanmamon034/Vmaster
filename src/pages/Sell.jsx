@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Tag, X, Ticket as TicketIcon } from "lucide-react";
-import { base44 } from "@/api/base44Client";
+import { supabase } from "@/api/supabaseClient";
 import { Image } from "@/components/ui/image";
 import { useToast } from "@/components/ui/use-toast";
 import { useLocationSettings } from "@/lib/LocationContext";
@@ -10,7 +10,6 @@ export default function Sell() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { currency } = useLocationSettings();
-  const [me, setMe] = useState(null);
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [prices, setPrices] = useState({});
@@ -18,13 +17,21 @@ export default function Sell() {
 
   const load = async () => {
     try {
-      const user = await base44.auth.me();
-      setMe(user);
-      const list = await base44.entities.Ticket.list("-created_date", 100);
-      const mine = (list || []).filter((t) => t.created_by_id === user.id);
-      setTickets(mine);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setTickets([]);
+        return;
+      }
+      const { data, error } = await supabase
+        .from("tickets")
+        .select("*")
+        .eq("owner_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(100);
+      if (error) throw error;
+      setTickets(data || []);
       const p = {};
-      mine.forEach((t) => (p[t.id] = t.listing_price ?? t.price ?? ""));
+      (data || []).forEach((t) => (p[t.id] = t.listing_price ?? t.price ?? ""));
       setPrices(p);
     } catch (e) {
       console.error(e);
@@ -48,10 +55,11 @@ export default function Sell() {
     }
     setBusy(true);
     try {
-      await base44.entities.Ticket.update(t.id, {
-        status: "listed_for_sale",
-        listing_price: price,
-      });
+      const { error } = await supabase
+        .from("tickets")
+        .update({ status: "listed_for_sale", listing_price: price })
+        .eq("id", t.id);
+      if (error) throw error;
       toast({ title: "Listed for sale" });
       load();
     } catch (e) {
@@ -64,10 +72,11 @@ export default function Sell() {
   const removeListing = async (t) => {
     setBusy(true);
     try {
-      await base44.entities.Ticket.update(t.id, {
-        status: "in_wallet",
-        listing_price: null,
-      });
+      const { error } = await supabase
+        .from("tickets")
+        .update({ status: "in_wallet", listing_price: null })
+        .eq("id", t.id);
+      if (error) throw error;
       toast({ title: "Listing removed" });
       load();
     } catch (e) {
