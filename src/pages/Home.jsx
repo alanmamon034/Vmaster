@@ -19,11 +19,12 @@ export default function Home() {
   const [locationOpen, setLocationOpen] = useState(false);
 
   useEffect(() => {
+    setLoading(true);
     (async () => {
       try {
         const [{ data: ownEvents }, tmEvents] = await Promise.all([
           supabase.from("events").select("*").order("date", { ascending: false }).limit(50),
-          fetchTicketmasterEvents({ countryCode: "US", size: 30 }),
+          fetchTicketmasterEvents({ countryCode: country.code, size: 30 }),
         ]);
         setEvents([...(ownEvents || []), ...tmEvents]);
       } catch (e) {
@@ -32,7 +33,7 @@ export default function Home() {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [country.code]);
 
   const filtered = events.filter((ev) => {
     const matchCat = category === "All" || ev.category === category;
