@@ -12,14 +12,19 @@ export async function fetchTicketmasterEvents({ keyword = "", countryCode = "US"
   });
   if (keyword) params.set("keyword", keyword);
 
-  const res = await fetch(`https://app.ticketmaster.com/discovery/v2/events.json?${params.toString()}`);
-  if (!res.ok) {
-    console.error("Ticketmaster API error", res.status);
+  try {
+    const res = await fetch(`https://app.ticketmaster.com/discovery/v2/events.json?${params.toString()}`);
+    if (!res.ok) {
+      console.error("Ticketmaster API error", res.status);
+      return [];
+    }
+    const data = await res.json();
+    const events = data._embedded?.events || [];
+    return events.map(mapTicketmasterEvent);
+  } catch (e) {
+    console.error("Ticketmaster fetch failed", e);
     return [];
   }
-  const data = await res.json();
-  const events = data._embedded?.events || [];
-  return events.map(mapTicketmasterEvent);
 }
 
 function mapTicketmasterEvent(ev) {
