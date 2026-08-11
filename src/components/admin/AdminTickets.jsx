@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Plus, Pencil, Trash2, X } from "lucide-react";
-import { base44 } from "@/api/base44Client";
+import { supabase, uploadFile } from "@/api/supabaseClient";
 import { Image } from "@/components/ui/image";
 import { useToast } from "@/components/ui/use-toast";
 import { useLocationSettings } from "@/lib/LocationContext";
@@ -42,7 +42,13 @@ export default function AdminTickets() {
 
   const load = async () => {
     try {
-      const list = await base44.entities.Ticket.list("-created_date", 100);
+      const { data, error } = await supabase
+        .from("tickets")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(100);
+      if (error) throw error;
+      const list = data;
       setItems(list || []);
     } catch (e) {
       console.error(e);
@@ -62,7 +68,7 @@ export default function AdminTickets() {
     if (!file) return;
     setUploading(true);
     try {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      const { file_url } = await uploadFile(file);
       set("image_url", file_url);
     } catch {
       toast({ title: "Upload failed", variant: "destructive" });
@@ -118,9 +124,11 @@ export default function AdminTickets() {
         price: form.price ? Number(form.price) : null,
       };
       if (editing === "new") {
-        await base44.entities.Ticket.create(payload);
+        const { error } = await supabase.from("tickets").insert(payload);
+        if (error) throw error;
       } else {
-        await base44.entities.Ticket.update(editing, payload);
+        const { error } = await supabase.from("tickets").update(payload).eq("id", editing);
+        if (error) throw error;
       }
       toast({ title: "Ticket saved" });
       setEditing(null);
@@ -135,7 +143,8 @@ export default function AdminTickets() {
   const remove = async (t) => {
     if (!confirm(`Delete this ticket for "${t.event_name}"?`)) return;
     try {
-      await base44.entities.Ticket.delete(t.id);
+      const { error } = await supabase.from("tickets").delete().eq("id", t.id);
+      if (error) throw error;
       toast({ title: "Ticket deleted" });
       load();
     } catch {

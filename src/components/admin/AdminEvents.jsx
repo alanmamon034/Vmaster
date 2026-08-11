@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Plus, Pencil, Trash2, X } from "lucide-react";
-import { base44 } from "@/api/base44Client";
+import { supabase, uploadFile } from "@/api/supabaseClient";
 import { Image } from "@/components/ui/image";
 import { useToast } from "@/components/ui/use-toast";
 
@@ -33,7 +33,13 @@ export default function AdminEvents() {
 
   const load = async () => {
     try {
-      const list = await base44.entities.Event.list("-date", 100);
+      const { data, error } = await supabase
+        .from("events")
+        .select("*")
+        .order("date", { ascending: false })
+        .limit(100);
+      if (error) throw error;
+      const list = data;
       setItems(list || []);
     } catch (e) {
       console.error(e);
@@ -53,7 +59,7 @@ export default function AdminEvents() {
     if (!file) return;
     setUploading(true);
     try {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      const { file_url } = await uploadFile(file);
       set("image_url", file_url);
     } catch {
       toast({ title: "Upload failed", variant: "destructive" });
@@ -80,9 +86,11 @@ export default function AdminEvents() {
     setSaving(true);
     try {
       if (editing === "new") {
-        await base44.entities.Event.create(form);
+        const { error } = await supabase.from("events").insert(form);
+        if (error) throw error;
       } else {
-        await base44.entities.Event.update(editing, form);
+        const { error } = await supabase.from("events").update(form).eq("id", editing);
+        if (error) throw error;
       }
       toast({ title: "Event saved" });
       setEditing(null);
@@ -97,7 +105,8 @@ export default function AdminEvents() {
   const remove = async (ev) => {
     if (!confirm(`Delete "${ev.title}"?`)) return;
     try {
-      await base44.entities.Event.delete(ev.id);
+      const { error } = await supabase.from("events").delete().eq("id", ev.id);
+      if (error) throw error;
       toast({ title: "Event deleted" });
       load();
     } catch {
