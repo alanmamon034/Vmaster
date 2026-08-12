@@ -20,7 +20,7 @@ const emptySeat = { section: "", row: "", seats: "" };
 export default function AddTicket() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { currency } = useLocationSettings();
+  const { currency, country } = useLocationSettings();
   const { user } = useAuth();
   const [submitting, setSubmitting] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -91,6 +91,7 @@ export default function AddTicket() {
     try {
       const { error } = await supabase.from("tickets").insert({
         ...form,
+        country: country.code,
         owner_id: user.id,
         seat_groups: validSeats,
         ticket_limit: form.ticket_limit ? Number(form.ticket_limit) : null,
@@ -121,7 +122,6 @@ export default function AddTicket() {
         <h1 className="text-lg font-bold">Add Ticket</h1>
       </header>
 
-      {/* Event header — uploaded photo as background, details floating in front */}
       <div className="relative w-full aspect-[16/10] bg-neutral-900">
         {form.image_url ? (
           <Image src={form.image_url} fittingType="fill" className="absolute inset-0 h-full w-full" />
@@ -159,12 +159,9 @@ export default function AddTicket() {
               className="w-full bg-transparent pl-6 text-sm font-semibold text-white/90 placeholder:text-white/45 focus:outline-none"
             />
           </div>
-          <input
-            value={form.country}
-            onChange={(e) => set("country", e.target.value)}
-            placeholder="Country"
-            className="w-full bg-transparent text-xs font-semibold text-white/65 mt-1 placeholder:text-white/40 focus:outline-none uppercase tracking-wide"
-          />
+          <p className="text-xs font-semibold text-white/65 mt-1 uppercase tracking-wide">
+            {country.flag} {country.name}
+          </p>
           {ticketCount > 0 && (
             <div className="flex items-center gap-1.5 mt-3">
               <Ticket className="h-4 w-4 text-white/90" />
@@ -174,7 +171,6 @@ export default function AddTicket() {
         </div>
       </div>
 
-      {/* Main ticket card */}
       <div className="px-3 pt-4">
         <div className="bg-white rounded-xl p-4 shadow-sm border border-neutral-200/60 space-y-4">
           <div className="grid grid-cols-3 gap-2">
@@ -252,7 +248,6 @@ export default function AddTicket() {
         </div>
       </div>
 
-      {/* Individual seats */}
       <div className="px-3 pt-5">
         <p className="text-sm font-bold text-neutral-900">Individual seats</p>
         <p className="text-xs text-neutral-400 mt-0.5">
@@ -316,7 +311,6 @@ export default function AddTicket() {
         </button>
       </div>
 
-      {/* Photo */}
       <div className="px-3 pt-5">
         <p className="text-sm font-bold text-neutral-900 mb-2">Event photo</p>
         {form.image_url ? (
@@ -355,7 +349,6 @@ export default function AddTicket() {
         </div>
       </div>
 
-      {/* Bottom actions */}
       <div className="px-3 pt-6 space-y-3">
         <button
           type="button"
@@ -373,7 +366,6 @@ export default function AddTicket() {
         </button>
       </div>
 
-      {/* Preview dialog */}
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
         <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto p-0">
           <DialogHeader className="px-4 pt-4">
