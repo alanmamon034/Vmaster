@@ -18,11 +18,12 @@ import { useLocationSettings } from "@/lib/LocationContext";
 export default function MyTickets() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { currency } = useLocationSettings();
+  const { currency, country } = useLocationSettings();
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionTicket, setActionTicket] = useState(null);
   const [transferEmail, setTransferEmail] = useState("");
+  const [transferName, setTransferName] = useState("");
   const [sellPrice, setSellPrice] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -38,6 +39,7 @@ export default function MyTickets() {
         .from("tickets")
         .select("*")
         .eq("owner_id", user.id)
+        .eq("country", country.code)
         .order("created_at", { ascending: false })
         .limit(100);
       if (error) throw error;
@@ -51,11 +53,12 @@ export default function MyTickets() {
 
   useEffect(() => {
     load();
-  }, []);
+  }, [country.code]);
 
   const openAction = (ticket, type) => {
     setActionTicket({ ticket, type });
     setTransferEmail("");
+    setTransferName("");
     setSellPrice(ticket.price ? String(ticket.price) : "");
   };
   const closeAction = () => {
@@ -69,17 +72,21 @@ export default function MyTickets() {
     setBusy(true);
     try {
       if (type === "transfer") {
-        if (!transferEmail.trim()) {
-          toast({ title: "Enter recipient email", variant: "destructive" });
+        if (!transferName.trim() || !transferEmail.trim()) {
+          toast({ title: "Enter recipient name and email", variant: "destructive" });
           setBusy(false);
           return;
         }
         const { error } = await supabase
           .from("tickets")
-          .update({ status: "transferred", transfer_to: transferEmail.trim() })
+          .update({
+            status: "transferred",
+            transfer_to: transferEmail.trim(),
+            transfer_to_name: transferName.trim(),
+          })
           .eq("id", ticket.id);
         if (error) throw error;
-        toast({ title: `Ticket transferred to ${transferEmail.trim()}` });
+        toast({ title: `Ticket transferred to ${transferName.trim()}` });
       } else {
         const { error } = await supabase
           .from("tickets")
@@ -156,16 +163,29 @@ export default function MyTickets() {
             {actionTicket?.ticket?.event_name}
           </p>
           {actionTicket?.type === "transfer" ? (
-            <div className="py-2">
-              <label className="text-xs font-bold text-neutral-500 uppercase tracking-wide mb-1.5 block">
-                Recipient email
-              </label>
-              <Input
-                type="email"
-                value={transferEmail}
-                onChange={(e) => setTransferEmail(e.target.value)}
-                placeholder="friend@email.com"
-              />
+            <div className="py-2 space-y-3">
+              <div>
+                <label className="text-xs font-bold text-neutral-500 uppercase tracking-wide mb-1.5 block">
+                  Recipient name
+                </label>
+                <Input
+                  type="text"
+                  value={transferName}
+                  onChange={(e) => setTransferName(e.target.value)}
+                  placeholder="Jane Doe"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-neutral-500 uppercase tracking-wide mb-1.5 block">
+                  Recipient email
+                </label>
+                <Input
+                  type="email"
+                  value={transferEmail}
+                  onChange={(e) => setTransferEmail(e.target.value)}
+                  placeholder="friend@email.com"
+                />
+              </div>
               <p className="text-xs text-neutral-400 mt-2">
                 The recipient will be able to access this ticket.
               </p>
