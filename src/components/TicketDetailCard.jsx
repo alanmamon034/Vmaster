@@ -23,7 +23,14 @@ export default function TicketDetailCard({ ticket, onTransfer, onSell, onRemoveL
     ? format(new Date(ticket.event_date), "EEE MMM d, yyyy").toUpperCase()
     : "DATE TBC";
 
-  const seatCount = (ticket.seat_groups || []).reduce(
+  const allSeats =
+    (ticket.seat_groups || []).length > 0
+      ? ticket.seat_groups
+      : ticket.main_section || ticket.main_row || ticket.main_seat
+      ? [{ section: ticket.main_section, row: ticket.main_row, seats: ticket.main_seat }]
+      : [];
+
+  const seatCount = allSeats.reduce(
     (sum, g) => sum + (g.seats ? String(g.seats).split(",").filter(Boolean).length : 1),
     0
   );
@@ -101,47 +108,26 @@ export default function TicketDetailCard({ ticket, onTransfer, onSell, onRemoveL
         </button>
       </div>
 
-      <div className="mx-3 py-4 space-y-3">
-        {open && tab === "tickets" && (ticket.main_section || ticket.main_row || ticket.main_seat) && (
-          <div className="bg-white rounded-xl p-4 shadow-sm border border-neutral-200/60 space-y-3">
-            {ticket.order_number && (
-              <p className="text-sm font-bold text-neutral-900">Order #{ticket.order_number}</p>
-            )}
-            {ticket.package_name && (
-              <p className="text-sm font-bold text-neutral-900">{ticket.package_name}</p>
-            )}
-            <div className="grid grid-cols-3 gap-2">
-              <div>
-                <p className="text-[10px] font-bold text-neutral-400 tracking-widest">SECTION</p>
-                <p className="text-base font-black text-neutral-900 mt-0.5">{ticket.main_section || "—"}</p>
-              </div>
-              <div>
-                <p className="text-[10px] font-bold text-neutral-400 tracking-widest">ROW</p>
-                <p className="text-base font-black text-neutral-900 mt-0.5">{ticket.main_row || "—"}</p>
-              </div>
-              <div>
-                <p className="text-[10px] font-bold text-neutral-400 tracking-widest">SEAT</p>
-                <p className="text-base font-black text-neutral-900 mt-0.5">{ticket.main_seat || "—"}</p>
-              </div>
-            </div>
-            {ticket.ticket_limit && (
-              <p className="text-xs text-neutral-500">
-                {ticket.ticket_limit}-ticket limit per person on this event
-              </p>
-            )}
-          </div>
-        )}
+      {open && tab === "tickets" && ticket.order_number && (
+        <div className="mx-3 mt-4">
+          <p className="text-base font-black text-neutral-900">Order #{ticket.order_number}</p>
+          <p className="text-xs text-neutral-500 mt-0.5">x{seatCount} Tickets</p>
+        </div>
+      )}
 
+      <div className="mx-3 py-4 space-y-3">
         {open && tab === "tickets" &&
-          (ticket.seat_groups || []).map((g, i) => (
+          allSeats.map((g, i) => (
             <div
               key={i}
-              className="bg-white rounded-xl p-4 shadow-sm border border-neutral-200/60"
+              className="bg-white rounded-xl overflow-hidden shadow-sm border border-neutral-200/60"
             >
               {ticket.package_name && (
-                <p className="text-sm font-bold text-neutral-900 mb-3">{ticket.package_name}</p>
+                <p className="bg-neutral-100 text-xs font-bold text-neutral-700 uppercase tracking-wide px-4 py-2">
+                  {ticket.package_name}
+                </p>
               )}
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-3 gap-2 p-4">
                 <div>
                   <p className="text-[10px] font-bold text-neutral-400 tracking-widest">SECTION</p>
                   <p className="text-base font-black text-neutral-900 mt-0.5">{g.section || "—"}</p>
@@ -157,11 +143,9 @@ export default function TicketDetailCard({ ticket, onTransfer, onSell, onRemoveL
               </div>
             </div>
           ))}
-        {open && tab === "tickets" &&
-          (ticket.seat_groups || []).length === 0 &&
-          !(ticket.main_section || ticket.main_row || ticket.main_seat) && (
-            <p className="text-center text-neutral-400 text-sm py-6">No seat details</p>
-          )}
+        {open && tab === "tickets" && allSeats.length === 0 && (
+          <p className="text-center text-neutral-400 text-sm py-6">No seat details</p>
+        )}
         {open && tab === "extras" && (
           <p className="text-center text-neutral-400 text-sm py-6">No extras available</p>
         )}
