@@ -9,7 +9,7 @@ import { useLocationSettings } from "@/lib/LocationContext";
 export default function Sell() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { currency } = useLocationSettings();
+  const { currency, country } = useLocationSettings();
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [prices, setPrices] = useState({});
@@ -26,6 +26,7 @@ export default function Sell() {
         .from("tickets")
         .select("*")
         .eq("owner_id", user.id)
+        .eq("country", country.code)
         .order("created_at", { ascending: false })
         .limit(100);
       if (error) throw error;
@@ -42,7 +43,7 @@ export default function Sell() {
 
   useEffect(() => {
     load();
-  }, []);
+  }, [country.code]);
 
   const inWallet = tickets.filter((t) => t.status === "in_wallet");
   const listed = tickets.filter((t) => t.status === "listed_for_sale");
