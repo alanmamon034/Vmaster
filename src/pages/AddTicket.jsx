@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Plus, X, Upload, Camera, Eye, Save, Calendar, MapPin, Ticket } from "lucide-react";
 import { supabase, uploadFile } from "@/api/supabaseClient";
@@ -25,6 +25,7 @@ export default function AddTicket() {
   const [submitting, setSubmitting] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const dateInputRef = useRef(null);
 
   const [form, setForm] = useState({
     event_name: "",
@@ -91,6 +92,7 @@ export default function AddTicket() {
     try {
       const { error } = await supabase.from("tickets").insert({
         ...form,
+        event_date: form.event_date || null,
         country: country.code,
         owner_id: user.id,
         seat_groups: validSeats,
@@ -130,20 +132,34 @@ export default function AddTicket() {
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-black/45" />
         <div className="relative flex flex-col justify-end p-5 h-full">
-          <div className="relative flex items-center gap-2 mb-2 w-fit">
+          <button
+            type="button"
+            onClick={() => {
+              const el = dateInputRef.current;
+              if (!el) return;
+              if (typeof el.showPicker === "function") {
+                el.showPicker();
+              } else {
+                el.focus();
+                el.click();
+              }
+            }}
+            className="flex items-center gap-2 mb-2 w-fit"
+          >
             <Calendar className="h-4 w-4 text-white/85 shrink-0" />
             <span className="text-xs font-bold text-white uppercase tracking-wide">
               {form.event_date
                 ? format(new Date(form.event_date), "EEE MMM d, yyyy")
                 : "Add date"}
             </span>
-            <input
-              type="date"
-              value={form.event_date}
-              onChange={(e) => set("event_date", e.target.value)}
-              className="absolute inset-0 opacity-0 cursor-pointer [color-scheme:dark]"
-            />
-          </div>
+          </button>
+          <input
+            ref={dateInputRef}
+            type="date"
+            value={form.event_date}
+            onChange={(e) => set("event_date", e.target.value)}
+            className="sr-only"
+          />
           <input
             value={form.event_name}
             onChange={(e) => set("event_name", e.target.value)}
