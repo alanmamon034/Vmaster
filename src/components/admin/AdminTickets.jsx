@@ -11,6 +11,7 @@ const empty = {
   event_name: "",
   venue: "",
   country: "",
+  ticket_type: "regular",
   event_date: "",
   image_url: "",
   order_number: "",
@@ -281,6 +282,36 @@ export default function AdminTickets() {
                   </div>
                 </div>
               </div>
+              {(form.country || "").toUpperCase().includes("SG") ||
+              (form.country || "").toLowerCase().includes("singapore") ? (
+                <div>
+                  <p className={labelCls}>TICKET TYPE</p>
+                  <div className="flex gap-2 mt-1">
+                    <button
+                      type="button"
+                      onClick={() => set("ticket_type", "regular")}
+                      className={`flex-1 py-2 rounded-lg text-xs font-bold border transition-colors ${
+                        form.ticket_type === "regular"
+                          ? "bg-[#2563eb] text-white border-[#2563eb]"
+                          : "bg-white text-neutral-600 border-neutral-200"
+                      }`}
+                    >
+                      Regular
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => set("ticket_type", "vip")}
+                      className={`flex-1 py-2 rounded-lg text-xs font-bold border transition-colors ${
+                        form.ticket_type === "vip"
+                          ? "bg-[#2563eb] text-white border-[#2563eb]"
+                          : "bg-white text-neutral-600 border-neutral-200"
+                      }`}
+                    >
+                      VIP
+                    </button>
+                  </div>
+                </div>
+              ) : null}
               <div>
                 <p className={labelCls}>TICKET LIMIT PER PERSON</p>
                 <input type="number" value={form.ticket_limit} onChange={(e) => set("ticket_limit", e.target.value)} className={fieldCls} />
