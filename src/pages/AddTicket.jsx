@@ -21,6 +21,7 @@ export default function AddTicket() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { currency, country } = useLocationSettings();
+  const isSG = country.code === "SG";
   const { user } = useAuth();
   const [submitting, setSubmitting] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -31,6 +32,7 @@ export default function AddTicket() {
     event_name: "",
     venue: "",
     country: "",
+    ticket_type: "regular",
     event_date: "",
     image_url: "",
     order_number: "",
@@ -189,6 +191,41 @@ export default function AddTicket() {
 
       <div className="px-3 pt-4">
         <div className="bg-white rounded-xl p-4 shadow-sm border border-neutral-200/60 space-y-4">
+          {isSG && (
+            <div>
+              <p className={labelCls}>TICKET TYPE</p>
+              <div className="flex gap-2 mt-1">
+                <button
+                  type="button"
+                  onClick={() => set("ticket_type", "regular")}
+                  className={`flex-1 py-2.5 rounded-lg text-sm font-bold border transition-colors ${
+                    form.ticket_type === "regular"
+                      ? "bg-[#024ddf] text-white border-[#024ddf]"
+                      : "bg-white text-neutral-600 border-neutral-200"
+                  }`}
+                >
+                  Regular
+                </button>
+                <button
+                  type="button"
+                  onClick={() => set("ticket_type", "vip")}
+                  className={`flex-1 py-2.5 rounded-lg text-sm font-bold border transition-colors ${
+                    form.ticket_type === "vip"
+                      ? "bg-[#024ddf] text-white border-[#024ddf]"
+                      : "bg-white text-neutral-600 border-neutral-200"
+                  }`}
+                >
+                  VIP
+                </button>
+              </div>
+              {form.ticket_type === "vip" && (
+                <p className="text-xs text-neutral-400 mt-1.5">
+                  VIP tickets can't be transferred or sold once saved.
+                </p>
+              )}
+            </div>
+          )}
+
           <div className="grid grid-cols-3 gap-2">
             <div>
               <p className={labelCls}>SECTION</p>
