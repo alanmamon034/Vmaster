@@ -1,293 +1,319 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus } from "lucide-react";
-import { supabase } from "@/api/supabaseClient";
-import TicketDetailCard from "@/components/TicketDetailCard";
+import { ArrowLeft, Plus, X, Upload, Camera, Eye, Save, Calendar, MapPin, Ticket } from "lucide-react";
+import { supabase, uploadFile } from "@/api/supabaseClient";
+import { useAuth } from "@/lib/AuthContext";
+import { Image } from "@/components/ui/image";
+import { useToast } from "@/components/ui/use-toast";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { useToast } from "@/components/ui/use-toast";
+import TicketDetailCard from "@/components/TicketDetailCard";
 import { useLocationSettings } from "@/lib/LocationContext";
+import { format } from "date-fns";
 
-export default function MyTickets() {
+const emptySeat = { section: "", row: "", seats: "" };
+
+export default function AddTicket() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { currency, country } = useLocationSettings();
-  const isSG = country.code === "SG";
+  const { user } = useAuth();
+  const [submitting, setSubmitting] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const dateInputRef = useRef(null);
 
-  const [subTab, setSubTab] = useState("purchased"); // purchased | received
-  const [purchasedTickets, setPurchasedTickets] = useState([]);
-  const [receivedTickets, setReceivedTickets] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [actionTicket, setActionTicket] = useState(null);
-  const [transferEmail, setTransferEmail] = useState("");
-  const [transferName, setTransferName] = useState("");
-  const [sellPrice, setSellPrice] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [form, setForm] = useState({
+    event_name: "",
+    venue: "",
+    country: "",
+    event_date: "",
+    image_url: "",
+    order_number: "",
+    package_name: "",
+    ticket_limit: "",
+    main_section: "",
+    main_row: "",
+    main_seat: "",
+    price: "",
+  });
+  const [seats, setSeats] = useState([{ ...emptySeat }]);
 
-  const load = async () => {
-    setLoading(true);
+  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+
+  const ticketCount =
+    seats.filter((g) => g.section || g.row || g.seats).length ||
+    (form.main_section ? 1 : 0);
+
+  const handleImage = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        setPurchasedTickets([]);
-        setReceivedTickets([]);
-        return;
-      }
-
-      const { data: purchased, error: purchasedError } = await supabase
-        .from("tickets")
-        .select("*")
-        .eq("owner_id", user.id)
-        .eq("country", country.code)
-        .order("created_at", { ascending: false })
-        .limit(100);
-      if (purchasedError) throw purchasedError;
-      setPurchasedTickets(purchased || []);
-
-      if (isSG && user.email) {
-        const { data: received, error: receivedError } = await supabase
-          .from("tickets")
-          .select("*")
-          .eq("transfer_to", user.email)
-          .eq("country", country.code)
-          .order("created_at", { ascending: false })
-          .limit(100);
-        if (receivedError) throw receivedError;
-        setReceivedTickets(received || []);
-      } else {
-        setReceivedTickets([]);
-      }
-    } catch (e) {
-      console.error(e);
+      const { file_url } = await uploadFile(file);
+      set("image_url", file_url);
+      toast({ title: "Photo updated" });
+    } catch (err) {
+      toast({ title: "Upload failed", variant: "destructive" });
     } finally {
-      setLoading(false);
+      setUploading(false);
     }
   };
 
-  useEffect(() => {
-    load();
-  }, [country.code]);
+  const addSeat = () => setSeats((s) => [...s, { ...emptySeat }]);
+  const removeSeat = (i) => setSeats((s) => s.filter((_, idx) => idx !== i));
+  const updateSeat = (i, k, v) =>
+    setSeats((s) => s.map((seat, idx) => (idx === i ? { ...seat, [k]: v } : seat)));
 
-  const tickets = subTab === "received" ? receivedTickets : purchasedTickets;
-
-  const openAction = (ticket, type) => {
-    setActionTicket({ ticket, type });
-    setTransferEmail("");
-    setTransferName("");
-    setSellPrice(ticket.price ? String(ticket.price) : "");
-  };
-  const closeAction = () => {
-    setActionTicket(null);
-    setBusy(false);
+  const previewTicket = {
+    ...form,
+    seat_groups: seats.filter((g) => g.section || g.row || g.seats),
+    ticket_limit: form.ticket_limit ? Number(form.ticket_limit) : null,
+    price: form.price ? Number(form.price) : null,
+    status: "in_wallet",
   };
 
-  const confirmAction = async () => {
-    if (!actionTicket) return;
-    const { ticket, type } = actionTicket;
-    setBusy(true);
+  const submit = async (e) => {
+    e?.preventDefault?.();
+    if (!form.event_name.trim()) {
+      toast({ title: "Event name is required", variant: "destructive" });
+      return;
+    }
+    const validSeats = seats.filter((g) => g.section || g.row || g.seats);
+    if (validSeats.length === 0 && !form.main_section) {
+      toast({ title: "Add at least one seat", variant: "destructive" });
+      return;
+    }
+    setSubmitting(true);
     try {
-      if (type === "transfer") {
-        if (!transferName.trim() || !transferEmail.trim()) {
-          toast({ title: "Enter recipient name and email", variant: "destructive" });
-          setBusy(false);
-          return;
-        }
-        const { error } = await supabase
-          .from("tickets")
-          .update({
-            status: "transferred",
-            transfer_to: transferEmail.trim(),
-            transfer_to_name: transferName.trim(),
-          })
-          .eq("id", ticket.id);
-        if (error) throw error;
-        toast({ title: `Ticket transferred to ${transferName.trim()}` });
-      } else {
-        const { error } = await supabase
-          .from("tickets")
-          .update({
-            status: "listed_for_sale",
-            listing_price: sellPrice ? Number(sellPrice) : null,
-          })
-          .eq("id", ticket.id);
-        if (error) throw error;
-        toast({ title: `Ticket listed for sale ${currency.symbol}${sellPrice || "0"}` });
-      }
-      await load();
-      closeAction();
-    } catch (e) {
-      toast({ title: "Action failed", variant: "destructive" });
-      setBusy(false);
+      const { error } = await supabase.from("tickets").insert({
+        ...form,
+        event_date: form.event_date || null,
+        country: country.code,
+        owner_id: user.id,
+        seat_groups: validSeats,
+        ticket_limit: form.ticket_limit ? Number(form.ticket_limit) : null,
+        price: form.price ? Number(form.price) : null,
+        status: "in_wallet",
+      });
+      if (error) throw error;
+      toast({ title: "Ticket saved to your wallet" });
+      navigate("/my-tickets");
+    } catch (err) {
+      toast({ title: "Failed to save ticket", variant: "destructive" });
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <div className="w-8 h-8 border-4 border-neutral-200 border-t-[#024ddf] rounded-full animate-spin" />
-      </div>
-    );
-  }
+  const inputCls =
+    "w-full px-3 py-2.5 rounded-lg border border-neutral-200 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#024ddf]/30 focus:border-[#024ddf]";
+
+  const labelCls = "text-[10px] font-bold text-neutral-400 tracking-widest";
 
   return (
-    <div className="min-h-screen">
-      {isSG && (
-        <div className="flex border-b border-neutral-200 bg-white sticky top-0 z-30">
-          <button
-            onClick={() => setSubTab("purchased")}
-            className={`flex-1 py-3 text-sm font-bold transition-colors ${
-              subTab === "purchased"
-                ? "text-[#024ddf] border-b-2 border-[#024ddf]"
-                : "text-neutral-400"
-            }`}
-          >
-            Purchased
-          </button>
-          <button
-            onClick={() => setSubTab("received")}
-            className={`flex-1 py-3 text-sm font-bold transition-colors ${
-              subTab === "received"
-                ? "text-[#024ddf] border-b-2 border-[#024ddf]"
-                : "text-neutral-400"
-            }`}
-          >
-            Received
-          </button>
-        </div>
-      )}
+    <form onSubmit={submit} className="min-h-screen bg-neutral-50 pb-8">
+      <header className="sticky top-0 z-40 bg-black text-white px-4 py-3 flex items-center gap-3">
+        <button type="button" onClick={() => navigate(-1)} className="p-1">
+          <ArrowLeft className="h-6 w-6" />
+        </button>
+        <h1 className="text-lg font-bold">Add Ticket</h1>
+      </header>
 
-      {isSG && (
-        <div className="mx-3 mt-3 rounded-lg bg-purple-50 border border-purple-100 px-4 py-3">
-          <p className="text-xs text-purple-700 leading-relaxed">
-            Find your purchase and tickets received via ticket transfer here.
-            Ticket transfer allows you to transfer some or all of your tickets to
-            another account. Not all orders are eligible for transfer.
-          </p>
-        </div>
-      )}
-
-      {tickets.length === 0 ? (
-        <div className="min-h-[60vh] flex flex-col items-center justify-center px-6 text-center">
-          <div className="mx-auto h-20 w-20 rounded-full bg-neutral-100 flex items-center justify-center mb-5">
-            <Plus className="h-10 w-10 text-neutral-300" />
+      <div className="relative w-full aspect-[16/10] bg-neutral-900">
+        {form.image_url ? (
+          <Image src={form.image_url} fittingType="fill" className="absolute inset-0 h-full w-full" />
+        ) : (
+          <div className="absolute inset-0 bg-gradient-to-br from-neutral-800 to-neutral-900" />
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-black/45" />
+        <div className="relative flex flex-col justify-end p-5 h-full">
+          <button
+            type="button"
+            onClick={() => {
+              const el = dateInputRef.current;
+              if (!el) return;
+              if (typeof el.showPicker === "function") {
+                el.showPicker();
+              } else {
+                el.focus();
+                el.click();
+              }
+            }}
+            className="flex items-center gap-2 mb-2 w-fit"
+          >
+            <Calendar className="h-4 w-4 text-white/85 shrink-0" />
+            <span className="text-xs font-bold text-white uppercase tracking-wide">
+              {form.event_date
+                ? format(new Date(form.event_date), "EEE MMM d, yyyy")
+                : "Add date"}
+            </span>
+          </button>
+          <input
+            ref={dateInputRef}
+            type="date"
+            value={form.event_date}
+            onChange={(e) => set("event_date", e.target.value)}
+            className="sr-only"
+          />
+          <input
+            value={form.event_name}
+            onChange={(e) => set("event_name", e.target.value)}
+            placeholder="Event name"
+            className="w-full bg-transparent text-2xl font-black leading-tight text-white placeholder:text-white/45 focus:outline-none"
+          />
+          <div className="relative mt-2">
+            <MapPin className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-4 text-white/80" />
+            <input
+              value={form.venue}
+              onChange={(e) => set("venue", e.target.value)}
+              placeholder="Venue"
+              className="w-full bg-transparent pl-6 text-sm font-semibold text-white/90 placeholder:text-white/45 focus:outline-none"
+            />
           </div>
-          <p className="text-neutral-900 font-bold text-lg">
-            {subTab === "received" ? "No tickets received" : "No tickets yet"}
+          <p className="text-xs font-semibold text-white/65 mt-1 uppercase tracking-wide">
+            {country.flag} {country.name}
           </p>
-          <p className="text-neutral-500 text-sm mt-1">
-            {subTab === "received"
-              ? "Tickets transferred to you will show up here"
-              : "Add your first ticket from Settings"}
-          </p>
-          {subTab === "purchased" && (
-            <button
-              onClick={() => navigate("/add")}
-              className="mt-5 inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-[#024ddf] text-white font-bold text-sm active:scale-95 transition-transform"
-            >
-              <Plus className="h-5 w-5" /> Add a ticket
-            </button>
+          {ticketCount > 0 && (
+            <div className="flex items-center gap-1.5 mt-3">
+              <Ticket className="h-4 w-4 text-white/90" />
+              <span className="text-xs font-bold text-white">x {ticketCount} tickets</span>
+            </div>
           )}
         </div>
-      ) : (
-        <div className="space-y-8 pt-4">
-          {tickets.map((ticket) => (
-            <TicketDetailCard
-              key={ticket.id}
-              ticket={ticket}
-              readOnly={subTab === "received"}
-              onTransfer={(t) => openAction(t, "transfer")}
-              onSell={(t) => openAction(t, "sell")}
-              onRemoveListing={async (t) => {
-                await supabase
-                  .from("tickets")
-                  .update({ status: "in_wallet", listing_price: null })
-                  .eq("id", t.id);
-                load();
-              }}
+      </div>
+
+      <div className="px-3 pt-4">
+        <div className="bg-white rounded-xl p-4 shadow-sm border border-neutral-200/60 space-y-4">
+          <div className="grid grid-cols-3 gap-2">
+            <div>
+              <p className={labelCls}>SECTION</p>
+              <input
+                value={form.main_section}
+                onChange={(e) => set("main_section", e.target.value)}
+                placeholder="PC3"
+                className={inputCls}
+              />
+            </div>
+            <div>
+              <p className={labelCls}>ROW</p>
+              <input
+                value={form.main_row}
+                onChange={(e) => set("main_row", e.target.value)}
+                placeholder="4"
+                className={inputCls}
+              />
+            </div>
+            <div>
+              <p className={labelCls}>SEAT</p>
+              <input
+                value={form.main_seat}
+                onChange={(e) => set("main_seat", e.target.value)}
+                placeholder="440"
+                className={inputCls}
+              />
+            </div>
+          </div>
+
+          <div>
+            <p className={labelCls}>ORDER #</p>
+            <input
+              value={form.order_number}
+              onChange={(e) => set("order_number", e.target.value)}
+              placeholder="50-3567765AG2"
+              className={inputCls}
             />
+          </div>
+
+          <div>
+            <p className={labelCls}>PACKAGE NAME</p>
+            <input
+              value={form.package_name}
+              onChange={(e) => set("package_name", e.target.value)}
+              placeholder="SOUNDCHECK VIP PACKAGE"
+              className={inputCls}
+            />
+          </div>
+
+          <div>
+            <p className={labelCls}>TICKET LIMIT PER PERSON</p>
+            <input
+              type="number"
+              value={form.ticket_limit}
+              onChange={(e) => set("ticket_limit", e.target.value)}
+              placeholder="4"
+              className={inputCls}
+            />
+            <p className="text-xs text-neutral-400 mt-1">4-ticket limit per person on this event</p>
+          </div>
+
+          <div>
+            <p className={labelCls}>PRICE PAID ({currency.symbol})</p>
+            <input
+              type="number"
+              value={form.price}
+              onChange={(e) => set("price", e.target.value)}
+              placeholder="0.00"
+              className={inputCls}
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="px-3 pt-5">
+        <p className="text-sm font-bold text-neutral-900">Individual seats</p>
+        <p className="text-xs text-neutral-400 mt-0.5">
+          Optional — shown to the buyer as a per-ticket breakdown
+        </p>
+
+        <div className="mt-3 space-y-3">
+          {seats.map((seat, i) => (
+            <div key={i} className="bg-white rounded-xl p-4 shadow-sm border border-neutral-200/60">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-bold text-neutral-400">Seat {i + 1}</span>
+                {seats.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeSeat(i)}
+                    className="text-xs font-bold text-[#024ddf] active:opacity-60"
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <p className={labelCls}>SECTION</p>
+                  <input
+                    value={seat.section}
+                    onChange={(e) => updateSeat(i, "section", e.target.value)}
+                    placeholder="PC3"
+                    className={inputCls}
+                  />
+                </div>
+                <div>
+                  <p className={labelCls}>ROW</p>
+                  <input
+                    value={seat.row}
+                    onChange={(e) => updateSeat(i, "row", e.target.value)}
+                    placeholder="5"
+                    className={inputCls}
+                  />
+                </div>
+                <div>
+                  <p className={labelCls}>SEAT</p>
+                  <input
+                    value={seat.seats}
+                    onChange={(e) => updateSeat(i, "seats", e.target.value)}
+                    placeholder="23"
+                    className={inputCls}
+                  />
+                </div>
+              </div>
+            </div>
           ))}
         </div>
-      )}
-
-      <Dialog open={!!actionTicket} onOpenChange={(o) => !o && closeAction()}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {actionTicket?.type === "transfer" ? "Transfer ticket" : "Sell ticket"}
-            </DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-neutral-500 -mt-2">
-            {actionTicket?.ticket?.event_name}
-          </p>
-          {actionTicket?.type === "transfer" ? (
-            <div className="py-2 space-y-3">
-              <div>
-                <label className="text-xs font-bold text-neutral-500 uppercase tracking-wide mb-1.5 block">
-                  Recipient name
-                </label>
-                <Input
-                  type="text"
-                  value={transferName}
-                  onChange={(e) => setTransferName(e.target.value)}
-                  placeholder="Jane Doe"
-                />
-              </div>
-              <div>
-                <label className="text-xs font-bold text-neutral-500 uppercase tracking-wide mb-1.5 block">
-                  Recipient email
-                </label>
-                <Input
-                  type="email"
-                  value={transferEmail}
-                  onChange={(e) => setTransferEmail(e.target.value)}
-                  placeholder="friend@email.com"
-                />
-              </div>
-              <p className="text-xs text-neutral-400 mt-2">
-                The recipient will be able to access this ticket.
-              </p>
-            </div>
-          ) : (
-            <div className="py-2">
-              <label className="text-xs font-bold text-neutral-500 uppercase tracking-wide mb-1.5 block">
-                Listing price ({currency.symbol})
-              </label>
-              <Input
-                type="number"
-                value={sellPrice}
-                onChange={(e) => setSellPrice(e.target.value)}
-                placeholder="0.00"
-              />
-              <p className="text-xs text-neutral-400 mt-2">
-                Your ticket will be listed on the marketplace for others to buy.
-              </p>
-            </div>
-          )}
-          <DialogFooter>
-            <Button variant="ghost" onClick={closeAction} disabled={busy}>
-              Cancel
-            </Button>
-            <Button
-              onClick={confirmAction}
-              disabled={busy}
-              className="bg-[#024ddf] text-white hover:bg-[#024ddf]/90"
-            >
-              {busy
-                ? "Processing…"
-                : actionTicket?.type === "transfer"
-                ? "Confirm transfer"
-                : "List for sale"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
-}
