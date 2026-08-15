@@ -19,7 +19,11 @@ export default function MyTickets() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { currency, country } = useLocationSettings();
-  const [tickets, setTickets] = useState([]);
+  const isSG = country.code === "SG";
+
+  const [subTab, setSubTab] = useState("purchased"); // purchased | received
+  const [purchasedTickets, setPurchasedTickets] = useState([]);
+  const [receivedTickets, setReceivedTickets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionTicket, setActionTicket] = useState(null);
   const [transferEmail, setTransferEmail] = useState("");
@@ -32,18 +36,34 @@ export default function MyTickets() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        setTickets([]);
+        setPurchasedTickets([]);
+        setReceivedTickets([]);
         return;
       }
-      const { data, error } = await supabase
+
+      const { data: purchased, error: purchasedError } = await supabase
         .from("tickets")
         .select("*")
         .eq("owner_id", user.id)
         .eq("country", country.code)
         .order("created_at", { ascending: false })
         .limit(100);
-      if (error) throw error;
-      setTickets(data || []);
+      if (purchasedError) throw purchasedError;
+      setPurchasedTickets(purchased || []);
+
+      if (isSG && user.email) {
+        const { data: received, error: receivedError } = await supabase
+          .from("tickets")
+          .select("*")
+          .eq("transfer_to", user.email)
+          .eq("country", country.code)
+          .order("created_at", { ascending: false })
+          .limit(100);
+        if (receivedError) throw receivedError;
+        setReceivedTickets(received || []);
+      } else {
+        setReceivedTickets([]);
+      }
     } catch (e) {
       console.error(e);
     } finally {
@@ -54,6 +74,8 @@ export default function MyTickets() {
   useEffect(() => {
     load();
   }, [country.code]);
+
+  const tickets = subTab === "received" ? receivedTickets : purchasedTickets;
 
   const openAction = (ticket, type) => {
     setActionTicket({ ticket, type });
@@ -114,43 +136,85 @@ export default function MyTickets() {
     );
   }
 
-  if (tickets.length === 0) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center px-6 text-center">
-        <div className="mx-auto h-20 w-20 rounded-full bg-neutral-100 flex items-center justify-center mb-5">
-          <Plus className="h-10 w-10 text-neutral-300" />
-        </div>
-        <p className="text-neutral-900 font-bold text-lg">No tickets yet</p>
-        <p className="text-neutral-500 text-sm mt-1">Add your first ticket from Settings</p>
-        <button
-          onClick={() => navigate("/add")}
-          className="mt-5 inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-[#024ddf] text-white font-bold text-sm active:scale-95 transition-transform"
-        >
-          <Plus className="h-5 w-5" /> Add a ticket
-        </button>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen">
-      <div className="space-y-8">
-        {tickets.map((ticket) => (
-          <TicketDetailCard
-            key={ticket.id}
-            ticket={ticket}
-            onTransfer={(t) => openAction(t, "transfer")}
-            onSell={(t) => openAction(t, "sell")}
-            onRemoveListing={async (t) => {
-              await supabase
-                .from("tickets")
-                .update({ status: "in_wallet", listing_price: null })
-                .eq("id", t.id);
-              load();
-            }}
-          />
-        ))}
-      </div>
+      {isSG && (
+        <div className="flex border-b border-neutral-200 bg-white sticky top-0 z-30">
+          <button
+            onClick={() => setSubTab("purchased")}
+            className={`flex-1 py-3 text-sm font-bold transition-colors ${
+              subTab === "purchased"
+                ? "text-[#024ddf] border-b-2 border-[#024ddf]"
+                : "text-neutral-400"
+            }`}
+          >
+            Purchased
+          </button>
+          <button
+            onClick={() => setSubTab("received")}
+            className={`flex-1 py-3 text-sm font-bold transition-colors ${
+              subTab === "received"
+                ? "text-[#024ddf] border-b-2 border-[#024ddf]"
+                : "text-neutral-400"
+            }`}
+          >
+            Received
+          </button>
+        </div>
+      )}
+
+      {isSG && (
+        <div className="mx-3 mt-3 rounded-lg bg-purple-50 border border-purple-100 px-4 py-3">
+          <p className="text-xs text-purple-700 leading-relaxed">
+            Find your purchase and tickets received via ticket transfer here.
+            Ticket transfer allows you to transfer some or all of your tickets to
+            another account. Not all orders are eligible for transfer.
+          </p>
+        </div>
+      )}
+
+      {tickets.length === 0 ? (
+        <div className="min-h-[60vh] flex flex-col items-center justify-center px-6 text-center">
+          <div className="mx-auto h-20 w-20 rounded-full bg-neutral-100 flex items-center justify-center mb-5">
+            <Plus className="h-10 w-10 text-neutral-300" />
+          </div>
+          <p className="text-neutral-900 font-bold text-lg">
+            {subTab === "received" ? "No tickets received" : "No tickets yet"}
+          </p>
+          <p className="text-neutral-500 text-sm mt-1">
+            {subTab === "received"
+              ? "Tickets transferred to you will show up here"
+              : "Add your first ticket from Settings"}
+          </p>
+          {subTab === "purchased" && (
+            <button
+              onClick={() => navigate("/add")}
+              className="mt-5 inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-[#024ddf] text-white font-bold text-sm active:scale-95 transition-transform"
+            >
+              <Plus className="h-5 w-5" /> Add a ticket
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-8 pt-4">
+          {tickets.map((ticket) => (
+            <TicketDetailCard
+              key={ticket.id}
+              ticket={ticket}
+              readOnly={subTab === "received"}
+              onTransfer={(t) => openAction(t, "transfer")}
+              onSell={(t) => openAction(t, "sell")}
+              onRemoveListing={async (t) => {
+                await supabase
+                  .from("tickets")
+                  .update({ status: "in_wallet", listing_price: null })
+                  .eq("id", t.id);
+                load();
+              }}
+            />
+          ))}
+        </div>
+      )}
 
       <Dialog open={!!actionTicket} onOpenChange={(o) => !o && closeAction()}>
         <DialogContent>
