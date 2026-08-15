@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, HelpCircle, ScanLine, Send, RefreshCw } from "lucide-react";
+import { ArrowLeft, HelpCircle, ScanLine, Send, RefreshCw, Printer } from "lucide-react";
 import { format } from "date-fns";
 import { Image } from "@/components/ui/image";
 import { cn } from "@/lib/utils";
@@ -13,9 +13,11 @@ const statusMeta = {
   sold: { label: "Sold", color: "bg-white/10 text-neutral-300" },
 };
 
-export default function TicketDetailCard({ ticket, onTransfer, onSell, onRemoveListing }) {
+export default function TicketDetailCard({ ticket, onTransfer, onSell, onRemoveListing, readOnly = false }) {
   const navigate = useNavigate();
-  const { currency } = useLocationSettings();
+  const { currency, country } = useLocationSettings();
+  const isSG = country.code === "SG";
+  const BOOKING_FEE = 10;
   const [tab, setTab] = useState("tickets");
   const [open, setOpen] = useState(true);
 
@@ -36,7 +38,12 @@ export default function TicketDetailCard({ ticket, onTransfer, onSell, onRemoveL
   );
 
   const meta = statusMeta[ticket.status] || statusMeta.in_wallet;
-  const canAct = ticket.status === "in_wallet";
+  // VIP transfer/sell restriction only applies to Singapore tickets.
+  const isVipPackage =
+    ticket.country === "SG" &&
+    (ticket.ticket_type === "vip" ||
+      (!ticket.ticket_type && !!ticket.package_name));
+  const canAct = ticket.status === "in_wallet" && !isVipPackage && !readOnly;
 
   return (
     <div className="bg-neutral-100">
@@ -150,6 +157,43 @@ export default function TicketDetailCard({ ticket, onTransfer, onSell, onRemoveL
           <p className="text-center text-neutral-400 text-sm py-6">No extras available</p>
         )}
       </div>
+
+      {isSG && open && tab === "tickets" && ticket.price != null && (
+        <div className="mx-3 mb-3 bg-white rounded-xl p-4 shadow-sm border border-neutral-200/60 space-y-1.5">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-neutral-500">Ticket price</span>
+            <span className="font-semibold text-neutral-900">
+              {currency.symbol}{Number(ticket.price).toFixed(2)}
+            </span>
+          </div>
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-neutral-500">Booking Fee</span>
+            <span className="font-semibold text-neutral-900">
+              {currency.symbol}{BOOKING_FEE.toFixed(2)}
+            </span>
+          </div>
+          <div className="flex items-center justify-between text-sm pt-1.5 border-t border-neutral-100 mt-1.5">
+            <span className="font-bold text-neutral-900">Subtotal</span>
+            <span className="font-bold text-neutral-900">
+              {currency.symbol}{(Number(ticket.price) + BOOKING_FEE).toFixed(2)}
+            </span>
+          </div>
+          <button
+            onClick={() => window.print()}
+            className="w-full mt-3 flex items-center justify-center gap-2 py-2.5 rounded-lg bg-[#024ddf] text-white font-bold text-sm active:bg-[#023bb8] transition-colors"
+          >
+            <Printer className="h-4 w-4" /> Print-at-Home
+          </button>
+        </div>
+      )}
+
+      {ticket.status === "in_wallet" && isVipPackage && (
+        <div className="mx-3 mb-6 rounded-xl bg-neutral-100 border border-neutral-200 px-4 py-3 text-center">
+          <span className="text-xs font-medium text-neutral-500">
+            VIP package tickets can't be transferred or sold
+          </span>
+        </div>
+      )}
 
       {canAct && (
         <div className="mx-3 mb-6 sticky bottom-20 z-30">
