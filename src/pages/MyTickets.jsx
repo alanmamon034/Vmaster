@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Plus } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import TicketDetailCard from "@/components/TicketDetailCard";
+import TransferSheet from "@/components/TransferSheet";
 import {
   Dialog,
   DialogContent,
@@ -15,6 +16,16 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 import { useLocationSettings } from "@/lib/LocationContext";
 
+// Same seat-flattening logic used in TicketDetailCard, kept in sync so the
+// transfer sheet shows exactly the seats the customer sees on the card.
+function getAllSeats(ticket) {
+  if ((ticket.seat_groups || []).length > 0) return ticket.seat_groups;
+  if (ticket.main_section || ticket.main_row || ticket.main_seat) {
+    return [{ section: ticket.main_section, row: ticket.main_row, seats: ticket.main_seat }];
+  }
+  return [];
+}
+
 export default function MyTickets() {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -25,9 +36,7 @@ export default function MyTickets() {
   const [purchasedTickets, setPurchasedTickets] = useState([]);
   const [receivedTickets, setReceivedTickets] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [actionTicket, setActionTicket] = useState(null);
-  const [transferEmail, setTransferEmail] = useState("");
-  const [transferName, setTransferName] = useState("");
+  const [actionTicket, setActionTicket] = useState(null); // { ticket, type }
   const [sellPrice, setSellPrice] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -51,7 +60,6 @@ export default function MyTickets() {
       if (purchasedError) throw purchasedError;
       setPurchasedTickets(purchased || []);
 
-      // Received: tickets someone transferred to this user's email
       if (isSG && user.email) {
         const { data: received, error: receivedError } = await supabase
           .from("tickets")
@@ -80,8 +88,6 @@ export default function MyTickets() {
 
   const openAction = (ticket, type) => {
     setActionTicket({ ticket, type });
-    setTransferEmail("");
-    setTransferName("");
     setSellPrice(ticket.price ? String(ticket.price) : "");
   };
   const closeAction = () => {
@@ -89,38 +95,78 @@ export default function MyTickets() {
     setBusy(false);
   };
 
-  const confirmAction = async () => {
-    if (!actionTicket) return;
-    const { ticket, type } = actionTicket;
+  // Handles both full transfers (every seat selected) and partial transfers
+  // (only some seats selected, so the original ticket is split in two).
+  const handleTransferConfirm = async ({ selectedIndices, name, email }) => {
+    const ticket = actionTicket.ticket;
+    const allSeats = getAllSeats(ticket);
+    const remaining = allSeats.filter((_, idx) => !selectedIndices.includes(idx));
+    const transferred = allSeats.filter((_, idx) => selectedIndices.includes(idx));
+
     setBusy(true);
     try {
-      if (type === "transfer") {
-        if (!transferName.trim() || !transferEmail.trim()) {
-          toast({ title: "Enter recipient name and email", variant: "destructive" });
-          setBusy(false);
-          return;
-        }
+      if (remaining.length === 0) {
+        // Transferring every seat on this ticket — just update it in place.
         const { error } = await supabase
           .from("tickets")
           .update({
             status: "transferred",
-            transfer_to: transferEmail.trim(),
-            transfer_to_name: transferName.trim(),
+            transfer_to: email,
+            transfer_to_name: name,
           })
           .eq("id", ticket.id);
         if (error) throw error;
-        toast({ title: `Ticket transferred to ${transferName.trim()}` });
       } else {
-        const { error } = await supabase
+        // Partial transfer — split into two rows: keep the remaining seats
+        // on the original ticket, and create a new ticket row for the
+        // transferred seats so the recipient can see exactly what they got.
+        const { error: updateError } = await supabase
           .from("tickets")
           .update({
-            status: "listed_for_sale",
-            listing_price: sellPrice ? Number(sellPrice) : null,
+            seat_groups: remaining,
+            main_section: null,
+            main_row: null,
+            main_seat: null,
           })
           .eq("id", ticket.id);
-        if (error) throw error;
-        toast({ title: `Ticket listed for sale ${currency.symbol}${sellPrice || "0"}` });
+        if (updateError) throw updateError;
+
+        const { id, created_at, ...rest } = ticket;
+        const { error: insertError } = await supabase.from("tickets").insert({
+          ...rest,
+          seat_groups: transferred,
+          main_section: null,
+          main_row: null,
+          main_seat: null,
+          status: "transferred",
+          transfer_to: email,
+          transfer_to_name: name,
+        });
+        if (insertError) throw insertError;
       }
+      toast({ title: `Ticket transferred to ${name}` });
+      await load();
+      closeAction();
+    } catch (e) {
+      toast({ title: "Transfer failed", variant: "destructive" });
+      setBusy(false);
+    }
+  };
+
+  const confirmSell = async () => {
+    if (!actionTicket) return;
+    const { ticket } = actionTicket;
+    setBusy(true);
+    try {
+      const { error } = await supabase
+        .from("tickets")
+        .update({
+          status: "listed_for_sale",
+          listing_price: sellPrice ? Number(sellPrice) : null,
+        })
+        .eq("id", ticket.id);
+      if (error) throw error;
+      toast({ title: `Ticket listed for sale ${currency.symbol}${sellPrice || "0"}` });
       await load();
       closeAction();
     } catch (e) {
@@ -217,74 +263,50 @@ export default function MyTickets() {
         </div>
       )}
 
-      <Dialog open={!!actionTicket} onOpenChange={(o) => !o && closeAction()}>
+      <TransferSheet
+        open={!!actionTicket && actionTicket.type === "transfer"}
+        ticket={actionTicket?.ticket}
+        allSeats={actionTicket?.ticket ? getAllSeats(actionTicket.ticket) : []}
+        onClose={closeAction}
+        onConfirm={handleTransferConfirm}
+        busy={busy}
+      />
+
+      <Dialog
+        open={!!actionTicket && actionTicket.type === "sell"}
+        onOpenChange={(o) => !o && closeAction()}
+      >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>
-              {actionTicket?.type === "transfer" ? "Transfer ticket" : "Sell ticket"}
-            </DialogTitle>
+            <DialogTitle>Sell ticket</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-neutral-500 -mt-2">
             {actionTicket?.ticket?.event_name}
           </p>
-          {actionTicket?.type === "transfer" ? (
-            <div className="py-2 space-y-3">
-              <div>
-                <label className="text-xs font-bold text-neutral-500 uppercase tracking-wide mb-1.5 block">
-                  Recipient name
-                </label>
-                <Input
-                  type="text"
-                  value={transferName}
-                  onChange={(e) => setTransferName(e.target.value)}
-                  placeholder="Jane Doe"
-                />
-              </div>
-              <div>
-                <label className="text-xs font-bold text-neutral-500 uppercase tracking-wide mb-1.5 block">
-                  Recipient email
-                </label>
-                <Input
-                  type="email"
-                  value={transferEmail}
-                  onChange={(e) => setTransferEmail(e.target.value)}
-                  placeholder="friend@email.com"
-                />
-              </div>
-              <p className="text-xs text-neutral-400 mt-2">
-                The recipient will be able to access this ticket.
-              </p>
-            </div>
-          ) : (
-            <div className="py-2">
-              <label className="text-xs font-bold text-neutral-500 uppercase tracking-wide mb-1.5 block">
-                Listing price ({currency.symbol})
-              </label>
-              <Input
-                type="number"
-                value={sellPrice}
-                onChange={(e) => setSellPrice(e.target.value)}
-                placeholder="0.00"
-              />
-              <p className="text-xs text-neutral-400 mt-2">
-                Your ticket will be listed on the marketplace for others to buy.
-              </p>
-            </div>
-          )}
+          <div className="py-2">
+            <label className="text-xs font-bold text-neutral-500 uppercase tracking-wide mb-1.5 block">
+              Listing price ({currency.symbol})
+            </label>
+            <Input
+              type="number"
+              value={sellPrice}
+              onChange={(e) => setSellPrice(e.target.value)}
+              placeholder="0.00"
+            />
+            <p className="text-xs text-neutral-400 mt-2">
+              Your ticket will be listed on the marketplace for others to buy.
+            </p>
+          </div>
           <DialogFooter>
             <Button variant="ghost" onClick={closeAction} disabled={busy}>
               Cancel
             </Button>
             <Button
-              onClick={confirmAction}
+              onClick={confirmSell}
               disabled={busy}
               className="bg-[#024ddf] text-white hover:bg-[#024ddf]/90"
             >
-              {busy
-                ? "Processing…"
-                : actionTicket?.type === "transfer"
-                ? "Confirm transfer"
-                : "List for sale"}
+              {busy ? "Processing…" : "List for sale"}
             </Button>
           </DialogFooter>
         </DialogContent>
