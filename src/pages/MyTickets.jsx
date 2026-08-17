@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Layers } from "lucide-react";
+import { Plus, Layers, X, Search, Heart, Tag, User, ShieldAlert } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import TicketDetailCard from "@/components/TicketDetailCard";
 import TransferSheet from "@/components/TransferSheet";
@@ -16,6 +16,8 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 import { useLocationSettings } from "@/lib/LocationContext";
 
+// Same seat-flattening logic used in TicketDetailCard, kept in sync so the
+// transfer sheet shows exactly the seats the customer sees on the card.
 function getAllSeats(ticket) {
   if ((ticket.seat_groups || []).length > 0) return ticket.seat_groups;
   if (ticket.main_section || ticket.main_row || ticket.main_seat) {
@@ -38,6 +40,7 @@ export default function MyTickets() {
   const [actionTicket, setActionTicket] = useState(null); // { ticket, type }
   const [sellPrice, setSellPrice] = useState("");
   const [busy, setBusy] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -103,6 +106,8 @@ export default function MyTickets() {
     setBusy(false);
   };
 
+  // Handles both full transfers (every seat selected) and partial transfers
+  // (only some seats selected, so the original ticket is split in two).
   const handleTransferConfirm = async ({ selectedIndices, name, email }) => {
     const ticket = actionTicket.ticket;
     const allSeats = getAllSeats(ticket);
@@ -112,6 +117,7 @@ export default function MyTickets() {
     setBusy(true);
     try {
       if (remaining.length === 0) {
+        // Transferring every seat on this ticket — just update it in place.
         const { error } = await supabase
           .from("tickets")
           .update({
@@ -122,6 +128,9 @@ export default function MyTickets() {
           .eq("id", ticket.id);
         if (error) throw error;
       } else {
+        // Partial transfer — split into two rows: keep the remaining seats
+        // on the original ticket, and create a new ticket row for the
+        // transferred seats so the recipient can see exactly what they got.
         const { error: updateError } = await supabase
           .from("tickets")
           .update({
@@ -188,7 +197,9 @@ export default function MyTickets() {
   return (
     <div className="min-h-screen">
       <header className="sticky top-0 z-40 bg-black text-white px-4 py-3 flex items-center justify-between">
-        <Layers className="h-5 w-5 text-white/70" />
+        <button onClick={() => setMenuOpen(true)}>
+          <Layers className="h-5 w-5 text-white/70" />
+        </button>
         <h1 className="text-base font-bold">My Tickets</h1>
         <span className="text-xl leading-none">{country.flag}</span>
       </header>
@@ -291,6 +302,40 @@ export default function MyTickets() {
               }}
             />
           ))}
+        </div>
+      )}
+
+      {menuOpen && (
+        <div className="fixed inset-0 z-[70] flex items-start">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setMenuOpen(false)} />
+          <div className="relative h-full w-64 bg-white shadow-xl flex flex-col">
+            <div className="flex items-center justify-between px-4 py-4 border-b border-neutral-100">
+              <span className="font-bold text-neutral-900">Menu</span>
+              <button onClick={() => setMenuOpen(false)} className="p-1 text-neutral-400">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <nav className="flex-1 py-2">
+              {[
+                { icon: Search, label: "Discover", path: "/" },
+                { icon: Heart, label: "For You", path: "/for-you" },
+                { icon: Tag, label: "Sell", path: "/sell" },
+                { icon: User, label: "My Account", path: "/settings" },
+              ].map((item) => (
+                <button
+                  key={item.path}
+                  onClick={() => {
+                    setMenuOpen(false);
+                    navigate(item.path);
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold text-neutral-700 active:bg-neutral-50"
+                >
+                  <item.icon className="h-5 w-5 text-neutral-400" />
+                  {item.label}
+                </button>
+              ))}
+            </nav>
+          </div>
         </div>
       )}
 
