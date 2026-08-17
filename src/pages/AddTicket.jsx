@@ -33,6 +33,7 @@ export default function AddTicket() {
     venue: "",
     country: "",
     ticket_type: "regular",
+    delivery_method: "mobile",
     event_date: "",
     image_url: "",
     order_number: "",
@@ -126,6 +127,7 @@ export default function AddTicket() {
         <h1 className="text-lg font-bold">Add Ticket</h1>
       </header>
 
+      {/* Event header — uploaded photo as background, details floating in front */}
       <div className="relative w-full aspect-[16/10] bg-neutral-900">
         {form.image_url ? (
           <Image src={form.image_url} fittingType="fill" className="absolute inset-0 h-full w-full" />
@@ -189,6 +191,7 @@ export default function AddTicket() {
         </div>
       </div>
 
+      {/* Main ticket card */}
       <div className="px-3 pt-4">
         <div className="bg-white rounded-xl p-4 shadow-sm border border-neutral-200/60 space-y-4">
           {isSG && (
@@ -257,6 +260,20 @@ export default function AddTicket() {
           </div>
 
           <div>
+            <p className={labelCls}>DELIVERY METHOD</p>
+            <select
+              value={form.delivery_method}
+              onChange={(e) => set("delivery_method", e.target.value)}
+              className={inputCls}
+            >
+              <option value="mobile">Mobile Ticket</option>
+              <option value="print_at_home">Print-At-Home</option>
+              <option value="venue_collection">Venue Collection</option>
+              <option value="courier">Courier Delivery</option>
+            </select>
+          </div>
+
+          <div>
             <p className={labelCls}>ORDER #</p>
             <input
               value={form.order_number}
@@ -301,6 +318,7 @@ export default function AddTicket() {
         </div>
       </div>
 
+      {/* Individual seats */}
       <div className="px-3 pt-5">
         <p className="text-sm font-bold text-neutral-900">Individual seats</p>
         <p className="text-xs text-neutral-400 mt-0.5">
@@ -364,6 +382,7 @@ export default function AddTicket() {
         </button>
       </div>
 
+      {/* Photo */}
       <div className="px-3 pt-5">
         <p className="text-sm font-bold text-neutral-900 mb-2">Event photo</p>
         {form.image_url ? (
@@ -402,6 +421,7 @@ export default function AddTicket() {
         </div>
       </div>
 
+      {/* Bottom actions */}
       <div className="px-3 pt-6 space-y-3">
         <button
           type="button"
@@ -419,6 +439,7 @@ export default function AddTicket() {
         </button>
       </div>
 
+      {/* Preview dialog */}
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
         <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto p-0">
           <DialogHeader className="px-4 pt-4">
