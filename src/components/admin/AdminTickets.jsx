@@ -12,6 +12,8 @@ const empty = {
   venue: "",
   country: "",
   ticket_type: "regular",
+  delivery_method: "mobile",
+  extras: [],
   event_date: "",
   image_url: "",
   order_number: "",
@@ -250,6 +252,25 @@ export default function AdminTickets() {
                   <p className={labelCls}>SEAT</p>
                   <input value={form.main_seat} onChange={(e) => set("main_seat", e.target.value)} className={fieldCls} />
                 </div>
+              </div>
+              <div>
+                <p className={labelCls}>DELIVERY METHOD</p>
+                <select value={form.delivery_method} onChange={(e) => set("delivery_method", e.target.value)} className={fieldCls}>
+                  <option value="mobile">Mobile Ticket</option>
+                  <option value="print_at_home">Print-At-Home</option>
+                  <option value="venue_collection">Venue Collection</option>
+                  <option value="courier">Courier Delivery</option>
+                </select>
+              </div>
+              <div>
+                <p className={labelCls}>EXTRAS (one per line)</p>
+                <textarea
+                  value={(form.extras || []).join("\n")}
+                  onChange={(e) => set("extras", e.target.value.split("\n").filter(Boolean))}
+                  rows={3}
+                  placeholder={"Early entry\nMerch item\nMeet & Greet"}
+                  className={fieldCls}
+                />
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
