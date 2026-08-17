@@ -17,7 +17,7 @@ export default function TicketDetailCard({ ticket, onTransfer, onSell, onRemoveL
   const navigate = useNavigate();
   const { currency, country } = useLocationSettings();
   const isSG = country.code === "SG";
-  const BOOKING_FEE = 10;
+  const BOOKING_FEE = 20;
   const [tab, setTab] = useState("tickets");
   const [open, setOpen] = useState(true);
 
@@ -38,7 +38,6 @@ export default function TicketDetailCard({ ticket, onTransfer, onSell, onRemoveL
   );
 
   const meta = statusMeta[ticket.status] || statusMeta.in_wallet;
-  // VIP transfer/sell restriction only applies to Singapore tickets.
   const isVipPackage =
     ticket.country === "SG" &&
     (ticket.ticket_type === "vip" ||
@@ -47,7 +46,7 @@ export default function TicketDetailCard({ ticket, onTransfer, onSell, onRemoveL
 
   return (
     <div className="bg-neutral-100">
-      <div className="relative aspect-[4/3] bg-neutral-800">
+      <div className="relative aspect-[16/9] bg-neutral-800">
         {ticket.image_url ? (
           <Image
             src={ticket.image_url}
@@ -161,9 +160,11 @@ export default function TicketDetailCard({ ticket, onTransfer, onSell, onRemoveL
       {isSG && open && tab === "tickets" && ticket.price != null && (
         <div className="mx-3 mb-3 bg-white rounded-xl p-4 shadow-sm border border-neutral-200/60 space-y-1.5">
           <div className="flex items-center justify-between text-sm">
-            <span className="text-neutral-500">Ticket price</span>
+            <span className="text-neutral-500">
+              Ticket price ({currency.symbol}{Number(ticket.price).toFixed(2)} x {seatCount})
+            </span>
             <span className="font-semibold text-neutral-900">
-              {currency.symbol}{Number(ticket.price).toFixed(2)}
+              {currency.symbol}{(Number(ticket.price) * seatCount).toFixed(2)}
             </span>
           </div>
           <div className="flex items-center justify-between text-sm">
@@ -175,7 +176,7 @@ export default function TicketDetailCard({ ticket, onTransfer, onSell, onRemoveL
           <div className="flex items-center justify-between text-sm pt-1.5 border-t border-neutral-100 mt-1.5">
             <span className="font-bold text-neutral-900">Subtotal</span>
             <span className="font-bold text-neutral-900">
-              {currency.symbol}{(Number(ticket.price) + BOOKING_FEE).toFixed(2)}
+              {currency.symbol}{(Number(ticket.price) * seatCount + BOOKING_FEE).toFixed(2)}
             </span>
           </div>
           <button
