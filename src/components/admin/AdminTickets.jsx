@@ -199,8 +199,8 @@ export default function AdminTickets() {
 
       {editing && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-end justify-center">
-          <div className="bg-white w-full max-w-md rounded-t-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-100 sticky top-0 bg-white">
+          <div className="bg-white w-full max-w-md rounded-t-2xl max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-100 shrink-0">
               <h3 className="font-bold text-neutral-900">
                 {editing === "new" ? "Add ticket" : "Edit ticket"}
               </h3>
@@ -208,7 +208,7 @@ export default function AdminTickets() {
                 <X className="h-5 w-5 text-neutral-500" />
               </button>
             </div>
-            <div className="p-4 space-y-3">
+            <div className="p-4 space-y-3 overflow-y-auto flex-1">
               <div>
                 <p className={labelCls}>EVENT NAME</p>
                 <input value={form.event_name} onChange={(e) => set("event_name", e.target.value)} className={fieldCls} />
@@ -372,6 +372,8 @@ export default function AdminTickets() {
                 </label>
               </div>
 
+            </div>
+            <div className="p-4 border-t border-neutral-100 shrink-0">
               <button
                 onClick={save}
                 disabled={saving}
