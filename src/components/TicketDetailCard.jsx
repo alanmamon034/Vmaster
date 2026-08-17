@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, HelpCircle, ScanLine, Send, RefreshCw, Printer } from "lucide-react";
+import { ArrowLeft, ScanLine, Send, RefreshCw, Printer, X, Mail, Phone } from "lucide-react";
 import { format } from "date-fns";
+import jsPDF from "jspdf";
 import { Image } from "@/components/ui/image";
 import { cn } from "@/lib/utils";
 import { useLocationSettings } from "@/lib/LocationContext";
@@ -13,6 +14,133 @@ const statusMeta = {
   sold: { label: "Sold", color: "bg-white/10 text-neutral-300" },
 };
 
+const deliveryLabels = {
+  mobile: "Mobile Ticket",
+  print_at_home: "Print-At-Home",
+  venue_collection: "Venue Collection",
+  courier: "Courier Delivery",
+};
+
+// Builds a QR code image URL encoding the ticket's unique identifiers.
+// Uses a free, no-key-required QR image API — no extra package needed.
+function qrCodeUrl(ticket, size = 200) {
+  const payload = JSON.stringify({
+    id: ticket.id,
+    order: ticket.order_number || "",
+    event: ticket.event_name,
+  });
+  return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(payload)}`;
+}
+
+// Fetches the QR image and converts it to a data URL so it can be embedded
+// directly into the generated PDF (fetching, not just linking, avoids
+// broken images if the PDF is opened offline later).
+async function fetchImageAsDataUrl(url) {
+  const res = await fetch(url);
+  const blob = await res.blob();
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function generateTicketPdf(ticket, allSeats) {
+  const doc = new jsPDF({ unit: "pt", format: "a4" });
+  const margin = 40;
+  let y = margin;
+
+  doc.setFontSize(20);
+  doc.setFont(undefined, "bold");
+  doc.text(ticket.event_name || "Event", margin, y);
+  y += 28;
+
+  doc.setFontSize(11);
+  doc.setFont(undefined, "normal");
+  const dateLabel = ticket.event_date
+    ? format(new Date(ticket.event_date), "EEEE, MMMM d, yyyy")
+    : "Date TBC";
+  doc.text(dateLabel, margin, y);
+  y += 16;
+  doc.text(ticket.venue || "Venue TBC", margin, y);
+  y += 30;
+
+  if (ticket.order_number) {
+    doc.setFont(undefined, "bold");
+    doc.text(`Order #${ticket.order_number}`, margin, y);
+    doc.setFont(undefined, "normal");
+    y += 20;
+  }
+
+  allSeats.forEach((seat, i) => {
+    doc.setFont(undefined, "bold");
+    doc.text(`Ticket ${i + 1}`, margin, y);
+    doc.setFont(undefined, "normal");
+    y += 16;
+    doc.text(
+      `Section ${seat.section || "—"}   Row ${seat.row || "—"}   Seat ${seat.seats || "—"}`,
+      margin,
+      y
+    );
+    y += 24;
+  });
+
+  try {
+    const qrDataUrl = await fetchImageAsDataUrl(qrCodeUrl(ticket, 300));
+    doc.addImage(qrDataUrl, "PNG", margin, y, 120, 120);
+    doc.setFontSize(9);
+    doc.text("Present this code for entry", margin, y + 132);
+  } catch (e) {
+    // If the QR image can't be fetched (offline, network blocked), the
+    // PDF still generates with all the text details above.
+  }
+
+  doc.save(`${(ticket.event_name || "ticket").replace(/[^a-z0-9]/gi, "_")}.pdf`);
+}
+
+function HelpDialog({ open, onClose }) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-[80] flex items-end justify-center">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative w-full max-w-md bg-white rounded-t-2xl max-h-[80vh] overflow-y-auto">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-100 sticky top-0 bg-white">
+          <h2 className="text-sm font-bold text-neutral-900">Help & Support</h2>
+          <button onClick={onClose} className="p-1 text-neutral-400">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="p-4 space-y-4">
+          <div>
+            <p className="text-sm font-bold text-neutral-900 mb-1">Where's my ticket?</p>
+            <p className="text-sm text-neutral-500">
+              Your ticket is available any time under My Tickets. Tap View Tickets to
+              see your seat details and QR code for entry.
+            </p>
+          </div>
+          <div>
+            <p className="text-sm font-bold text-neutral-900 mb-1">Can I transfer or sell my ticket?</p>
+            <p className="text-sm text-neutral-500">
+              Use the Transfer or Sell buttons on your ticket. VIP package tickets
+              can't be transferred or sold once purchased.
+            </p>
+          </div>
+          <div>
+            <p className="text-sm font-bold text-neutral-900 mb-1">Need more help?</p>
+            <div className="flex items-center gap-2 text-sm text-neutral-700 mt-2">
+              <Mail className="h-4 w-4 text-neutral-400" /> support@example.com
+            </div>
+            <div className="flex items-center gap-2 text-sm text-neutral-700 mt-1">
+              <Phone className="h-4 w-4 text-neutral-400" /> +1 (800) 555-0100
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function TicketDetailCard({ ticket, onTransfer, onSell, onRemoveListing, readOnly = false }) {
   const navigate = useNavigate();
   const { currency, country } = useLocationSettings();
@@ -20,6 +148,8 @@ export default function TicketDetailCard({ ticket, onTransfer, onSell, onRemoveL
   const BOOKING_FEE = 20;
   const [tab, setTab] = useState("tickets");
   const [open, setOpen] = useState(true);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [generatingPdf, setGeneratingPdf] = useState(false);
 
   const dateLabel = ticket.event_date
     ? format(new Date(ticket.event_date), "EEE MMM d, yyyy").toUpperCase()
@@ -43,6 +173,18 @@ export default function TicketDetailCard({ ticket, onTransfer, onSell, onRemoveL
     (ticket.ticket_type === "vip" ||
       (!ticket.ticket_type && !!ticket.package_name));
   const canAct = ticket.status === "in_wallet" && !isVipPackage && !readOnly;
+  const extras = Array.isArray(ticket.extras) ? ticket.extras : [];
+
+  const handlePrintAtHome = async () => {
+    setGeneratingPdf(true);
+    try {
+      await generateTicketPdf(ticket, allSeats);
+    } catch (e) {
+      window.print();
+    } finally {
+      setGeneratingPdf(false);
+    }
+  };
 
   return (
     <div className="bg-neutral-100">
@@ -63,7 +205,12 @@ export default function TicketDetailCard({ ticket, onTransfer, onSell, onRemoveL
           >
             <ArrowLeft className="h-5 w-5 text-white" />
           </button>
-          <button className="text-white text-sm font-semibold">Help</button>
+          <button
+            onClick={() => setHelpOpen(true)}
+            className="text-white text-sm font-semibold"
+          >
+            Help
+          </button>
         </div>
       </div>
 
@@ -110,7 +257,7 @@ export default function TicketDetailCard({ ticket, onTransfer, onSell, onRemoveL
             tab === "extras" ? "text-neutral-900 border-b-2 border-neutral-900" : "text-neutral-400"
           )}
         >
-          EXTRAS
+          EXTRAS {extras.length > 0 && `(${extras.length})`}
         </button>
       </div>
 
@@ -118,6 +265,23 @@ export default function TicketDetailCard({ ticket, onTransfer, onSell, onRemoveL
         <div className="mx-3 mt-4">
           <p className="text-base font-black text-neutral-900">Order #{ticket.order_number}</p>
           <p className="text-xs text-neutral-500 mt-0.5">x{seatCount} Tickets</p>
+          {ticket.delivery_method && (
+            <p className="text-xs text-neutral-400 mt-0.5">
+              {deliveryLabels[ticket.delivery_method] || ticket.delivery_method}
+            </p>
+          )}
+        </div>
+      )}
+
+      {open && tab === "tickets" && allSeats.length > 0 && (
+        <div className="mx-3 mt-4 bg-white rounded-xl p-4 shadow-sm border border-neutral-200/60 flex flex-col items-center">
+          <img
+            src={qrCodeUrl(ticket, 160)}
+            alt="Ticket QR code"
+            className="h-40 w-40"
+            crossOrigin="anonymous"
+          />
+          <p className="text-xs text-neutral-400 mt-2">Present this code for entry</p>
         </div>
       )}
 
@@ -153,7 +317,20 @@ export default function TicketDetailCard({ ticket, onTransfer, onSell, onRemoveL
           <p className="text-center text-neutral-400 text-sm py-6">No seat details</p>
         )}
         {open && tab === "extras" && (
-          <p className="text-center text-neutral-400 text-sm py-6">No extras available</p>
+          extras.length > 0 ? (
+            <div className="space-y-2">
+              {extras.map((extra, i) => (
+                <div
+                  key={i}
+                  className="bg-white rounded-xl p-4 shadow-sm border border-neutral-200/60"
+                >
+                  <p className="text-sm font-semibold text-neutral-900">{extra}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-center text-neutral-400 text-sm py-6">No extras available</p>
+          )
         )}
       </div>
 
@@ -180,10 +357,11 @@ export default function TicketDetailCard({ ticket, onTransfer, onSell, onRemoveL
             </span>
           </div>
           <button
-            onClick={() => window.print()}
-            className="w-full mt-3 flex items-center justify-center gap-2 py-2.5 rounded-lg bg-[#024ddf] text-white font-bold text-sm active:bg-[#023bb8] transition-colors"
+            onClick={handlePrintAtHome}
+            disabled={generatingPdf}
+            className="w-full mt-3 flex items-center justify-center gap-2 py-2.5 rounded-lg bg-[#024ddf] text-white font-bold text-sm active:bg-[#023bb8] transition-colors disabled:opacity-60"
           >
-            <Printer className="h-4 w-4" /> Print-at-Home
+            <Printer className="h-4 w-4" /> {generatingPdf ? "Generating…" : "Print-at-Home"}
           </button>
         </div>
       )}
@@ -236,6 +414,8 @@ export default function TicketDetailCard({ ticket, onTransfer, onSell, onRemoveL
           </span>
         </div>
       )}
+
+      <HelpDialog open={helpOpen} onClose={() => setHelpOpen(false)} />
     </div>
   );
 }
