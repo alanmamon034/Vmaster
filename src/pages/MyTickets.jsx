@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus } from "lucide-react";
+import { Plus, Layers } from "lucide-react";
 import { supabase } from "@/api/supabaseClient";
 import TicketDetailCard from "@/components/TicketDetailCard";
 import TransferSheet from "@/components/TransferSheet";
@@ -16,8 +16,6 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 import { useLocationSettings } from "@/lib/LocationContext";
 
-// Same seat-flattening logic used in TicketDetailCard, kept in sync so the
-// transfer sheet shows exactly the seats the customer sees on the card.
 function getAllSeats(ticket) {
   if ((ticket.seat_groups || []).length > 0) return ticket.seat_groups;
   if (ticket.main_section || ticket.main_row || ticket.main_seat) {
@@ -33,6 +31,7 @@ export default function MyTickets() {
   const isSG = country.code === "SG";
 
   const [subTab, setSubTab] = useState("purchased"); // purchased | received
+  const [dateTab, setDateTab] = useState("upcoming"); // upcoming | past
   const [purchasedTickets, setPurchasedTickets] = useState([]);
   const [receivedTickets, setReceivedTickets] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -84,7 +83,16 @@ export default function MyTickets() {
     load();
   }, [country.code]);
 
-  const tickets = subTab === "received" ? receivedTickets : purchasedTickets;
+  const baseTickets = subTab === "received" ? receivedTickets : purchasedTickets;
+
+  const now = new Date();
+  const isUpcoming = (t) => {
+    if (!t.event_date) return true;
+    return new Date(t.event_date) >= new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  };
+  const upcomingTickets = baseTickets.filter(isUpcoming);
+  const pastTickets = baseTickets.filter((t) => !isUpcoming(t));
+  const tickets = dateTab === "past" ? pastTickets : upcomingTickets;
 
   const openAction = (ticket, type) => {
     setActionTicket({ ticket, type });
@@ -95,8 +103,6 @@ export default function MyTickets() {
     setBusy(false);
   };
 
-  // Handles both full transfers (every seat selected) and partial transfers
-  // (only some seats selected, so the original ticket is split in two).
   const handleTransferConfirm = async ({ selectedIndices, name, email }) => {
     const ticket = actionTicket.ticket;
     const allSeats = getAllSeats(ticket);
@@ -106,7 +112,6 @@ export default function MyTickets() {
     setBusy(true);
     try {
       if (remaining.length === 0) {
-        // Transferring every seat on this ticket — just update it in place.
         const { error } = await supabase
           .from("tickets")
           .update({
@@ -117,9 +122,6 @@ export default function MyTickets() {
           .eq("id", ticket.id);
         if (error) throw error;
       } else {
-        // Partial transfer — split into two rows: keep the remaining seats
-        // on the original ticket, and create a new ticket row for the
-        // transferred seats so the recipient can see exactly what they got.
         const { error: updateError } = await supabase
           .from("tickets")
           .update({
@@ -185,8 +187,37 @@ export default function MyTickets() {
 
   return (
     <div className="min-h-screen">
+      <header className="sticky top-0 z-40 bg-black text-white px-4 py-3 flex items-center justify-between">
+        <Layers className="h-5 w-5 text-white/70" />
+        <h1 className="text-base font-bold">My Tickets</h1>
+        <span className="text-xl leading-none">{country.flag}</span>
+      </header>
+
+      <div className="flex border-b border-neutral-200 bg-white sticky top-[52px] z-30">
+        <button
+          onClick={() => setDateTab("upcoming")}
+          className={`flex-1 py-3 text-sm font-bold transition-colors ${
+            dateTab === "upcoming"
+              ? "text-[#024ddf] border-b-2 border-[#024ddf]"
+              : "text-neutral-400"
+          }`}
+        >
+          Upcoming ({upcomingTickets.length})
+        </button>
+        <button
+          onClick={() => setDateTab("past")}
+          className={`flex-1 py-3 text-sm font-bold transition-colors ${
+            dateTab === "past"
+              ? "text-[#024ddf] border-b-2 border-[#024ddf]"
+              : "text-neutral-400"
+          }`}
+        >
+          Past ({pastTickets.length})
+        </button>
+      </div>
+
       {isSG && (
-        <div className="flex border-b border-neutral-200 bg-white sticky top-0 z-30">
+        <div className="flex border-b border-neutral-200 bg-white sticky top-[100px] z-20">
           <button
             onClick={() => setSubTab("purchased")}
             className={`flex-1 py-3 text-sm font-bold transition-colors ${
