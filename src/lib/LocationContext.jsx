@@ -23,6 +23,7 @@ export const COUNTRIES = [
   { code: "ZA", name: "South Africa", flag: "🇿🇦", resale: false, currency: { code: "ZAR", symbol: "R" } },
   { code: "AE", name: "United Arab Emirates", flag: "🇦🇪", resale: false, currency: { code: "AED", symbol: "AED" } },
   { code: "SG", name: "Singapore", flag: "🇸🇬", resale: false, currency: { code: "SGD", symbol: "S$" } },
+  { code: "KE", name: "Kenya", flag: "🇰🇪", resale: false, currency: { code: "KES", symbol: "KSh" } },
   { code: "BR", name: "Brasil", flag: "🇧🇷", resale: false, currency: { code: "BRL", symbol: "R$" } },
   { code: "CL", name: "Chile", flag: "🇨🇱", resale: false, currency: { code: "CLP", symbol: "CLP$" } },
   { code: "CY", name: "Cyprus", flag: "🇨🇾", resale: false, currency: { code: "EUR", symbol: "€" } },
@@ -35,6 +36,21 @@ export const COUNTRIES = [
   { code: "TH", name: "Thailand", flag: "🇹🇭", resale: false, currency: { code: "THB", symbol: "฿" } },
   { code: "TR", name: "Türkiye", flag: "🇹🇷", resale: false, currency: { code: "TRY", symbol: "₺" } },
   { code: "GR", name: "Ελλάδα", flag: "🇬🇷", resale: false, currency: { code: "EUR", symbol: "€" } },
+
+  { code: "CN", name: "China", flag: "🇨🇳", resale: false, currency: { code: "CNY", symbol: "¥" } },
+  { code: "JP", name: "Japan", flag: "🇯🇵", resale: false, currency: { code: "JPY", symbol: "¥" } },
+  { code: "KR", name: "South Korea", flag: "🇰🇷", resale: false, currency: { code: "KRW", symbol: "₩" } },
+  { code: "KP", name: "North Korea", flag: "🇰🇵", resale: false, currency: { code: "KPW", symbol: "₩" } },
+  { code: "MN", name: "Mongolia", flag: "🇲🇳", resale: false, currency: { code: "MNT", symbol: "₮" } },
+
+  { code: "ID", name: "Indonesia", flag: "🇮🇩", resale: false, currency: { code: "IDR", symbol: "Rp" } },
+  { code: "VN", name: "Vietnam", flag: "🇻🇳", resale: false, currency: { code: "VND", symbol: "₫" } },
+  { code: "MY", name: "Malaysia", flag: "🇲🇾", resale: false, currency: { code: "MYR", symbol: "RM" } },
+  { code: "MM", name: "Myanmar", flag: "🇲🇲", resale: false, currency: { code: "MMK", symbol: "K" } },
+  { code: "KH", name: "Cambodia", flag: "🇰🇭", resale: false, currency: { code: "KHR", symbol: "៛" } },
+  { code: "LA", name: "Laos", flag: "🇱🇦", resale: false, currency: { code: "LAK", symbol: "₭" } },
+  { code: "BN", name: "Brunei", flag: "🇧🇳", resale: false, currency: { code: "BND", symbol: "B$" } },
+  { code: "TL", name: "Timor-Leste", flag: "🇹🇱", resale: false, currency: { code: "USD", symbol: "$" } },
 ];
 
 const STORAGE_KEY = "ep_location";
